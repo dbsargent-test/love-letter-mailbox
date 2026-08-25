@@ -129,11 +129,16 @@ Features we added **beyond** the original Love Letter Tech product:
 - Azure CLI blocked by corp CA — workaround: alternate personal account with device code flow
 
 #### Next Steps
-- [ ] Create GitHub account and push repo
-- [ ] Build messaging web page (HTML/JS)
-- [ ] Write Azure Functions API (send/receive messages)
+- [x] Create GitHub account and push repo — https://github.com/dbsargent-test/love-letter-mailbox
+- [x] Build messaging web page (HTML/JS) — SPA with Creative Studio, i18n (EN/ES), content moderation
+- [x] Write Azure Functions API (send/receive messages) — auth, messages, contacts, device endpoints
+- [x] Set up email service (Azure Communication Services) — forgot-password flow verified
+- [x] Security audit & hardening — 21 findings fixed, 22/24 live tests passed
+- [ ] Register GIPHY API key for GIF search (optional)
+- [ ] Extract inline JS to external file (remove CSP `unsafe-inline`)
 - [ ] Write ESP32-C5 firmware
 - [ ] Design 3D printable enclosure
+- [ ] Build spinning heart servo notification (Lovebox-inspired)
 - [ ] Test end-to-end when hardware arrives
 
 ---
@@ -144,5 +149,5 @@ Features we added **beyond** the original Love Letter Tech product:
 |----------|---------|--------|-------|
 | Hardware (2 units) | ~$92 | ~$113.97 | +$22 (850mAh battery more expensive than 400mAh) |
 | Monthly hosting | ~$0.02 | $0.02 | On target |
-| Time invested | — | ~2.5 hrs (session 1) | — |
+| Time invested | — | ~5.5 hrs (session 1: ~2.5h, session 2: ~3h) | — |
 | **Total project cost** | | **~$114 + time** | |
