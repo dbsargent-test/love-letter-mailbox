@@ -206,9 +206,9 @@ Ran full security, functionality, i18n, and UX audit — **21 findings, all fixe
 - Fixed HTTPS push with `gh auth setup-git`
 
 #### Secrets & Proprietary Cleanup (22:25 – 22:40)
-- **Fixed:** `package-lock.json` — 48 Microsoft internal npm feed URLs → regenerated from public registry
-- **Fixed:** Git author `dosarge@microsoft.com` → `Doug Sargent <dbsargent@gmail.com>`
-- **Fixed:** Docs referenced `bigbug_chile@hotmail.com` and corp Conditional Access → generalized
+- **Fixed:** `package-lock.json` — contained corporate npm feed URLs → regenerated from public registry
+- **Fixed:** Git author used corporate email → changed to personal email
+- **Fixed:** Docs referenced personal accounts and corporate environment details → generalized
 - **Fixed:** Journal day-of-week "Sun" → "Mon"
 - Force-pushed clean history; final scan: zero proprietary hits
 - Confirmed: no secrets (keys/tokens/passwords) were ever committed
