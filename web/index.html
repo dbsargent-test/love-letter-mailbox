@@ -1,0 +1,2098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>💌 Love Letter Mailbox</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📬</text></svg>">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header .icon { font-size: 48px; margin-bottom: 8px; }
+    .header h1 { font-size: 24px; color: #1a1a2e; font-weight: 700; }
+    .header p { color: #666; font-size: 14px; margin-top: 4px; }
+
+    .form-group { margin-bottom: 20px; }
+    label {
+      display: block; font-size: 13px; font-weight: 600; color: #444;
+      margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+    .text-input, textarea {
+      width: 100%; padding: 14px 16px; border: 2px solid #e0e0e0;
+      border-radius: 12px; font-size: 16px; font-family: inherit;
+      outline: none; transition: border-color 0.2s;
+    }
+    textarea { resize: vertical; min-height: 120px; }
+    .text-input:focus, textarea:focus { border-color: #667eea; }
+    textarea::placeholder, .text-input::placeholder { color: #aaa; }
+
+    .photo-upload {
+      position: relative; border: 2px dashed #d0d0d0; border-radius: 12px;
+      padding: 24px; text-align: center; cursor: pointer;
+      transition: all 0.2s; background: #fafafa;
+    }
+    .photo-upload:hover { border-color: #667eea; background: #f0f0ff; }
+    .photo-upload.has-photo { border-style: solid; border-color: #667eea; padding: 8px; }
+    .photo-upload input[type="file"] {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0; cursor: pointer;
+    }
+    .photo-upload .upload-text { color: #888; font-size: 14px; }
+    .photo-upload .upload-text .icon { font-size: 28px; display: block; margin-bottom: 8px; }
+    .photo-preview { display: none; width: 100%; border-radius: 8px; }
+    .photo-upload.has-photo .upload-text { display: none; }
+    .photo-upload.has-photo .photo-preview { display: block; }
+
+    .remove-photo {
+      display: none; background: #ff4757; color: white; border: none;
+      border-radius: 8px; padding: 8px 16px; font-size: 13px; cursor: pointer; margin-top: 8px;
+    }
+    .photo-upload.has-photo ~ .remove-photo { display: inline-block; }
+
+    /* --- CREATIVE STUDIO --- */
+    .studio-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.92); z-index: 2000;
+      display: flex; flex-direction: column; align-items: center;
+      overflow-y: auto;
+    }
+    .studio-header {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; max-width: 420px; padding: 10px 16px; color: white; flex-shrink: 0;
+    }
+    .studio-header h2 { margin: 0; font-size: 17px; }
+    .studio-header button {
+      background: none; border: none; color: white; font-size: 15px;
+      cursor: pointer; padding: 6px 12px; border-radius: 8px;
+    }
+    .studio-header button:hover { background: rgba(255,255,255,0.15); }
+    .studio-canvas-wrap {
+      position: relative; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4); touch-action: none;
+      flex-shrink: 0;
+    }
+    .studio-canvas-wrap canvas { display: block; }
+    /* Floating layer objects (stickers, text) */
+    .studio-obj {
+      position: absolute; cursor: grab; user-select: none; -webkit-user-select: none;
+      display: flex; align-items: center; justify-content: center;
+      transition: box-shadow 0.15s;
+    }
+    .studio-obj.selected {
+      outline: 2px dashed rgba(102,126,234,0.8); outline-offset: 4px;
+    }
+    .studio-obj .obj-delete {
+      position: absolute; top: -12px; right: -12px; width: 24px; height: 24px;
+      background: #ff4757; color: white; border: none; border-radius: 50%;
+      font-size: 13px; cursor: pointer; display: none; align-items: center;
+      justify-content: center; line-height: 1; z-index: 10;
+    }
+    .studio-obj.selected .obj-delete { display: flex; }
+    .studio-obj .obj-resize {
+      position: absolute; bottom: -10px; right: -10px; width: 22px; height: 22px;
+      background: #667eea; border: 2px solid white; border-radius: 50%;
+      cursor: nwse-resize; display: none; z-index: 10;
+    }
+    .studio-obj.selected .obj-resize { display: block; }
+    .studio-toolbar {
+      display: flex; gap: 4px; padding: 8px 6px; background: rgba(30,30,30,0.95);
+      border-radius: 12px; margin-top: 8px; flex-wrap: wrap; justify-content: center;
+      max-width: 420px; flex-shrink: 0;
+    }
+    .studio-toolbar button, .studio-toolbar label {
+      background: rgba(255,255,255,0.12); border: none; color: white;
+      border-radius: 8px; padding: 7px 9px; font-size: 17px; cursor: pointer;
+      min-width: 38px; text-align: center; transition: background 0.15s;
+    }
+    .studio-toolbar button:hover, .studio-toolbar label:hover { background: rgba(255,255,255,0.25); }
+    .studio-toolbar button.active { background: #667eea; }
+    .studio-toolbar input[type="color"] {
+      width: 34px; height: 34px; border: none; border-radius: 8px; cursor: pointer; background: none; padding: 0;
+    }
+    .studio-toolbar input[type="range"] { width: 70px; accent-color: #667eea; }
+    .studio-toolbar input[type="file"] { display: none; }
+    .studio-picker {
+      display: none; position: absolute; bottom: 0; left: 0; right: 0;
+      background: rgba(20,20,20,0.98); border-radius: 14px 14px 0 0;
+      padding: 14px; max-height: 50%; overflow-y: auto; z-index: 5;
+    }
+    .studio-picker.open { display: block; }
+    .studio-picker-close {
+      position: absolute; top: 10px; right: 14px; background: none; border: none;
+      color: #aaa; font-size: 20px; cursor: pointer;
+    }
+    .studio-picker h3 { color: #ccc; font-size: 13px; margin: 0 0 10px; font-weight: 500; }
+    .studio-picker-tabs {
+      display: flex; gap: 6px; margin-bottom: 10px;
+    }
+    .studio-picker-tabs button {
+      background: rgba(255,255,255,0.1); border: none; color: #ccc; padding: 6px 14px;
+      border-radius: 20px; font-size: 13px; cursor: pointer;
+    }
+    .studio-picker-tabs button.active { background: #667eea; color: white; }
+    .studio-picker-grid {
+      display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;
+    }
+    .studio-picker-grid span {
+      font-size: 28px; text-align: center; cursor: pointer; padding: 6px;
+      border-radius: 8px; transition: background 0.15s;
+    }
+    .studio-picker-grid span:hover { background: rgba(255,255,255,0.15); }
+    .studio-bg-grid {
+      display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;
+    }
+    .studio-bg-grid div {
+      width: 100%; aspect-ratio: 3/4; border-radius: 8px; cursor: pointer;
+      border: 2px solid transparent; transition: border-color 0.15s;
+    }
+    .studio-bg-grid div:hover { border-color: white; }
+    /* Font picker */
+    .studio-font-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;
+    }
+    .studio-font-grid button {
+      background: rgba(255,255,255,0.08); border: 2px solid transparent; color: white;
+      padding: 12px 8px; border-radius: 10px; cursor: pointer; font-size: 16px;
+      transition: border-color 0.15s;
+    }
+    .studio-font-grid button:hover, .studio-font-grid button.active { border-color: #667eea; }
+    /* GIF search */
+    .studio-gif-search {
+      display: flex; gap: 6px; margin-bottom: 10px;
+    }
+    .studio-gif-search input {
+      flex: 1; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 8px 12px; border-radius: 8px; font-size: 14px;
+    }
+    .studio-gif-search button {
+      background: #667eea; border: none; color: white; padding: 8px 14px;
+      border-radius: 8px; cursor: pointer; font-size: 14px;
+    }
+    .studio-gif-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+    }
+    .studio-gif-grid img {
+      width: 100%; border-radius: 8px; cursor: pointer; object-fit: cover;
+      height: 80px;
+    }
+
+    .btn {
+      width: 100%; padding: 16px; border: none; border-radius: 12px;
+      font-size: 17px; font-weight: 600; cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s; margin-top: 8px;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px); box-shadow: 0 4px 15px rgba(102,126,234,0.4);
+    }
+    .btn-primary:active { transform: translateY(0); }
+    .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .btn-logout {
+      background: none; color: #999; font-size: 13px; padding: 8px;
+      width: auto; margin: 0; border: none; cursor: pointer;
+    }
+    .btn-logout:hover { color: #667eea; }
+
+    .status { text-align: center; margin-top: 16px; font-size: 14px; min-height: 20px; }
+    .status.success { color: #2ed573; }
+    .status.error { color: #ff4757; }
+    .status.sending { color: #667eea; }
+
+    .user-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; padding: 10px 14px; background: #f0f0ff;
+      border-radius: 10px; font-size: 13px;
+    }
+    .user-bar .greeting { color: #667eea; font-weight: 600; }
+
+    .message-history { margin-top: 32px; border-top: 1px solid #eee; padding-top: 24px; }
+    .tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+    .tab {
+      flex: 1; padding: 10px; border: none; background: #f0f0f0; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer; color: #888; transition: all 0.2s;
+    }
+    .tab.active { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .tab:hover:not(.active) { background: #e0e0e0; }
+    .sent-filter { margin-bottom: 12px; }
+    .filter-select { padding: 10px 14px; font-size: 14px; }
+    .msg-item {
+      background: #f8f8f8; border-radius: 10px; padding: 12px 16px;
+      margin-bottom: 8px; font-size: 14px;
+    }
+    .msg-item .msg-sender { font-weight: 600; color: #667eea; font-size: 12px; }
+    .msg-item .msg-text { margin-top: 4px; color: #333; }
+    .msg-item .msg-time { font-size: 11px; color: #aaa; margin-top: 4px; }
+    .msg-item .msg-photo { width: 100%; border-radius: 6px; margin-top: 8px; }
+    .msg-item .msg-status { font-size: 11px; margin-top: 4px; }
+    .msg-item .msg-status.unread { color: #ff6b6b; }
+    .msg-item .msg-status.read { color: #2ed573; }
+    .msg-to { color: #999; font-size: 12px; font-weight: 400; }
+    .load-more {
+      width: 100%; padding: 10px; background: #f0f0f0; border: none;
+      border-radius: 10px; font-size: 13px; color: #667eea; cursor: pointer;
+      font-weight: 600; margin-top: 8px;
+    }
+    .load-more:hover { background: #e0e0ff; }
+    .badge {
+      display: inline-block; background: #ff4757; color: white; border-radius: 10px;
+      padding: 1px 7px; font-size: 11px; font-weight: 700; margin-left: 4px; vertical-align: middle;
+    }
+    .msg-actions { display: flex; gap: 8px; margin-top: 6px; }
+    .msg-action-btn {
+      background: none; border: 1px solid #e0e0e0; border-radius: 6px; padding: 4px 10px;
+      font-size: 11px; cursor: pointer; color: #888; transition: all 0.2s;
+    }
+    .msg-action-btn:hover { border-color: #667eea; color: #667eea; }
+    .msg-action-btn.delete:hover { border-color: #ff4757; color: #ff4757; }
+    .empty-state { text-align: center; color: #aaa; font-size: 14px; padding: 20px; }
+
+    .hidden { display: none !important; }
+    .modal {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5); display: flex; align-items: center;
+      justify-content: center; z-index: 100; padding: 20px;
+    }
+    .modal-content {
+      background: white; border-radius: 20px; padding: 32px; max-width: 380px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3); position: relative; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-content h3 { margin-bottom: 20px; color: #1a1a2e; }
+    .modal-close {
+      position: absolute; top: 16px; right: 16px; background: none; border: none;
+      font-size: 20px; cursor: pointer; color: #999; padding: 4px 8px; border-radius: 6px;
+    }
+    .modal-close:hover { background: #f0f0f0; color: #333; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- LOGIN SCREEN -->
+    <div id="loginScreen">
+      <div class="header">
+        <div class="icon">📬</div>
+        <h1 data-i18n="title">Love Letter Mailbox</h1>
+        <p data-i18n="subtitle">Sign in to send & receive messages</p>
+      </div>
+      <div class="form-group">
+        <label data-i18n="username">Username</label>
+        <input type="text" class="text-input" id="loginUser" data-i18n-ph="usernamePH" placeholder="Your username" autocomplete="username" autocapitalize="none">
+      </div>
+      <div class="form-group">
+        <label data-i18n="password">Password</label>
+        <input type="password" class="text-input" id="loginPass" data-i18n-ph="pwYourPH" placeholder="Your password" autocomplete="current-password">
+      </div>
+      <button class="btn btn-primary" id="loginBtn" data-i18n="signIn">🔑 Sign In</button>
+      <div class="status" id="loginStatus"></div>
+      <p style="text-align:center;margin-top:12px;font-size:13px">
+        <a href="#" id="showForgotPw" style="color:#667eea;font-weight:500" data-i18n="forgotPassword">Forgot password?</a>
+      </p>
+      <p style="text-align:center;margin-top:8px;font-size:13px;color:#888">
+        <span data-i18n="noAccount">Don't have an account?</span> <a href="#" id="showRegister" style="color:#667eea;font-weight:600" data-i18n="createOne">Create one</a>
+      </p>
+      <div style="text-align:center;margin-top:8px">
+        <select id="loginLangSelect" class="text-input" style="width:auto;display:inline;padding:4px 8px;font-size:12px" onchange="setLanguage(this.value)">
+          <option value="en">🇺🇸 English</option>
+          <option value="es">🇪🇸 Español</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- REGISTRATION SCREEN -->
+    <div id="registerScreen" class="hidden">
+      <div class="header">
+        <div class="icon">📬</div>
+        <h1 data-i18n="createAccount">Create Account</h1>
+        <p data-i18n="joinTitle">Join the Love Letter Mailbox</p>
+      </div>
+      <div class="form-group">
+        <label data-i18n="username">Username</label>
+        <input type="text" class="text-input" id="regUser" data-i18n-ph="usernamePH" placeholder="letters, numbers, underscore (3-20)" autocapitalize="none" maxlength="20">
+      </div>
+      <div class="form-group">
+        <label data-i18n="displayName">Display Name</label>
+        <input type="text" class="text-input" id="regDisplayName" data-i18n-ph="displayNamePH" placeholder="How others will see you" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label data-i18n="email">Email</label>
+        <input type="email" class="text-input" id="regEmail" data-i18n-ph="emailPH" placeholder="For password recovery" autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label data-i18n="password">Password</label>
+        <input type="password" class="text-input" id="regPass" data-i18n-ph="passwordPH" placeholder="Min 12 chars, upper+lower+number+special" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label data-i18n="confirmPassword">Confirm Password</label>
+        <input type="password" class="text-input" id="regPassConfirm" data-i18n-ph="repeatPW" placeholder="Repeat password" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary" id="registerBtn" data-i18n="registerBtn">📝 Create Account</button>
+      <div class="status" id="regStatus"></div>
+      <p style="text-align:center;margin-top:16px;font-size:13px;color:#888">
+        <span data-i18n="haveAccount">Already have an account?</span> <a href="#" id="showLogin" style="color:#667eea;font-weight:600" data-i18n="signInLink">Sign in</a>
+      </p>
+    </div>
+
+    <!-- FORGOT PASSWORD SCREEN -->
+    <div id="forgotPwScreen" class="hidden">
+      <div class="header">
+        <div class="icon">🔐</div>
+        <h1 data-i18n="forgotPasswordTitle">Reset Password</h1>
+        <p data-i18n="forgotPasswordDesc">Enter your username and we'll send a reset code to your registered email.</p>
+      </div>
+      <div class="form-group">
+        <label data-i18n="username">Username</label>
+        <input type="text" class="text-input" id="forgotUser" data-i18n-ph="usernamePH" placeholder="Your username" autocapitalize="none">
+      </div>
+      <button class="btn btn-primary" id="forgotPwBtn" data-i18n="sendResetCode">📧 Send Reset Code</button>
+      <div class="status" id="forgotStatus"></div>
+      <p style="text-align:center;margin-top:16px;font-size:13px;color:#888">
+        <a href="#" id="forgotBackToLogin" style="color:#667eea;font-weight:600" data-i18n="backToSignIn">← Back to Sign In</a>
+      </p>
+    </div>
+
+    <!-- RESET PASSWORD SCREEN -->
+    <div id="resetPwScreen" class="hidden">
+      <div class="header">
+        <div class="icon">🔑</div>
+        <h1 data-i18n="enterResetCode">Enter Reset Code</h1>
+        <p data-i18n="enterResetCodeDesc">Check your email for a 6-digit code.</p>
+      </div>
+      <div class="form-group">
+        <label data-i18n="resetCode">Reset Code</label>
+        <input type="text" class="text-input" id="resetCode" placeholder="123456" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" style="font-size:24px;text-align:center;letter-spacing:8px">
+      </div>
+      <div class="form-group">
+        <label data-i18n="newPassword">New Password</label>
+        <input type="password" class="text-input" id="resetNewPass" data-i18n-ph="passwordPH" placeholder="Min 12 chars, upper+lower+number+special" autocomplete="new-password">
+      </div>
+      <div class="form-group">
+        <label data-i18n="confirmPassword">Confirm Password</label>
+        <input type="password" class="text-input" id="resetNewPassConfirm" data-i18n-ph="repeatPW" placeholder="Repeat password" autocomplete="new-password">
+      </div>
+      <button class="btn btn-primary" id="resetPwBtn" data-i18n="resetPasswordBtn">🔑 Reset Password</button>
+      <div class="status" id="resetStatus"></div>
+      <p style="text-align:center;margin-top:16px;font-size:13px;color:#888">
+        <a href="#" id="resetBackToLogin" style="color:#667eea;font-weight:600" data-i18n="backToSignIn">← Back to Sign In</a>
+      </p>
+    </div>
+
+    <!-- MESSAGING SCREEN (hidden until login) -->
+    <div id="appScreen" class="hidden">
+      <div class="header">
+        <div class="icon">📬</div>
+        <h1 data-i18n="title">Love Letter Mailbox</h1>
+        <p id="appSubtitle" data-i18n="sendMessage">Send a message</p>
+      </div>
+
+      <div class="user-bar">
+        <span class="greeting" id="greetingText">Hi!</span>
+        <div>
+          <button class="btn-logout" id="settingsBtn" title="Settings">⚙️</button>
+          <button class="btn-logout" id="logoutBtn" data-i18n="signOut">Sign out</button>
+        </div>
+      </div>
+
+      <!-- Settings modal -->
+      <div id="settingsModal" class="modal hidden">
+        <div class="modal-content">
+          <button class="modal-close" id="closeSettings">✕</button>
+          <h3 data-i18n="settings">⚙️ Settings</h3>
+
+          <div class="form-group" style="margin-bottom:16px">
+            <label data-i18n="language">🌐 Language</label>
+            <select class="text-input" id="langSelect" onchange="setLanguage(this.value)">
+              <option value="en">🇺🇸 English</option>
+              <option value="es">🇪🇸 Español</option>
+            </select>
+          </div>
+          <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
+
+          <div class="form-group">
+            <label data-i18n="email">Email</label>
+            <input type="email" class="text-input" id="settingsEmail" data-i18n-ph="emailPH" placeholder="For password recovery" autocomplete="email">
+          </div>
+          <button class="btn" id="saveEmailBtn" style="background:#667eea;color:white;padding:10px;font-size:14px" data-i18n="saveEmail">💾 Save Email</button>
+          <div class="status" id="emailStatus" style="margin-bottom:8px"></div>
+
+          <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
+
+          <div class="form-group">
+            <label data-i18n="currentPW">Current Password</label>
+            <input type="password" class="text-input" id="currentPw" autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label data-i18n="newPW">New Password</label>
+            <input type="password" class="text-input" id="newPw" data-i18n-ph="passwordPH" placeholder="Min 12 chars, upper+lower+number+special" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label data-i18n="confirmNewPW">Confirm New Password</label>
+            <input type="password" class="text-input" id="confirmPw" autocomplete="new-password">
+          </div>
+          <button class="btn btn-primary" id="changePwBtn" data-i18n="changePW">🔒 Change Password</button>
+          <button class="btn-logout hidden" id="forcePwLogout" onclick="logout()" style="margin-top:8px;width:100%;text-align:center;padding:10px;color:#ff6b6b;font-weight:600">↩ Sign Out</button>
+          <div class="status" id="pwStatus"></div>
+
+          <hr style="margin:24px 0;border:none;border-top:1px solid #eee">
+          <h3 data-i18n="contacts">👥 Contacts</h3>
+          <div class="form-group" style="margin-top:12px">
+            <label data-i18n="searchUsers">Search users</label>
+            <div style="display:flex;gap:8px">
+              <input type="text" class="text-input" id="searchUserInput" data-i18n-ph="searchPH" placeholder="Username or name" style="flex:1">
+              <button class="msg-action-btn" onclick="searchUsers()" style="padding:10px 14px;white-space:nowrap">🔍</button>
+            </div>
+            <div id="searchResults" style="margin-top:8px"></div>
+          </div>
+          <div id="pendingRequests"></div>
+          <div id="contactsList" style="margin-top:12px"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="sendTo">Send to</label>
+        <select class="text-input" id="recipientSelect"></select>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="message">Message</label>
+        <textarea id="messageText" data-i18n-ph="messagePH" placeholder="Type your love letter here..." maxlength="500"></textarea>
+        <div id="charCounter" style="text-align:right;font-size:12px;color:#aaa;margin-top:4px">0/500</div>
+      </div>
+
+      <div class="form-group">
+        <label data-i18n="photoOptional">Photo (optional)</label>
+        <div class="photo-upload" id="photoUpload">
+          <div class="upload-text">
+            <span class="icon">📷</span>
+            <span data-i18n="tapPhoto">Tap to add a photo</span>
+          </div>
+          <img class="photo-preview" id="photoPreview" alt="Preview">
+          <input type="file" id="photoInput" accept="image/*">
+        </div>
+        <button class="remove-photo" id="removePhoto" data-i18n="removePhoto">✕ Remove photo</button>
+        <div style="font-size:11px;color:#aaa;margin-top:4px" data-i18n="photoMaxSize">Max 2MB</div>
+        <button class="btn" id="openStudioBtn" style="background:linear-gradient(135deg,#f093fb,#f5576c);color:white;margin-top:8px;width:auto;padding:10px 20px;font-size:14px" data-i18n="createArt">🎨 Create Art</button>
+      </div>
+
+      <button class="btn btn-primary" id="sendBtn" data-i18n="send">💌 Send</button>
+      <div class="status" id="status"></div>
+
+      <div class="message-history">
+        <div class="tabs">
+          <button class="tab active" id="tabReceived" onclick="switchTab('received')"><span data-i18n="received">📨 Received</span> <span class="badge hidden" id="unreadBadge">0</span></button>
+          <button class="tab" id="tabSent" onclick="switchTab('sent')" data-i18n="sent">📤 Sent</button>
+        </div>
+        <div id="sentFilter" class="sent-filter hidden">
+          <select class="text-input filter-select" id="filterRecipient" onchange="currentPage=0;loadMessages()">
+            <option value="" data-i18n="allRecipients">All recipients</option>
+          </select>
+        </div>
+        <div id="messageList">
+          <div class="empty-state" data-i18n="noMessages">No messages yet!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- i18n TRANSLATIONS ---
+    const i18n = {
+      en: {
+        title: 'Love Letter Mailbox', subtitle: 'Sign in to send & receive messages',
+        username: 'Username', password: 'Password', signIn: '🔑 Sign In',
+        noAccount: "Don't have an account?", createOne: 'Create one',
+        forgotPassword: 'Forgot password?',
+        forgotPasswordTitle: 'Reset Password',
+        forgotPasswordDesc: "Enter your username and we'll send a reset code to your registered email.",
+        sendResetCode: '📧 Send Reset Code', backToSignIn: '← Back to Sign In',
+        enterResetCode: 'Enter Reset Code', enterResetCodeDesc: 'Check your email for a 6-digit code.',
+        resetCode: 'Reset Code', newPassword: 'New Password',
+        resetPasswordBtn: '🔑 Reset Password',
+        email: 'Email', emailPH: 'For password recovery',
+        createAccount: 'Create Account', joinTitle: 'Join the Love Letter Mailbox',
+        displayName: 'Display Name', displayNamePH: 'How others will see you',
+        usernamePH: 'letters, numbers, underscore (3-20)',
+        passwordPH: 'Min 12 chars, upper+lower+number+special',
+        confirmPassword: 'Confirm Password', repeatPW: 'Repeat password',
+        registerBtn: '📝 Create Account', haveAccount: 'Already have an account?',
+        signInLink: 'Sign in', sendMessage: 'Send a message', signOut: 'Sign out',
+        settings: '⚙️ Settings', saveEmail: '💾 Save Email', emailSaved: '✅ Email saved!',
+        currentPW: 'Current Password', newPW: 'New Password',
+        confirmNewPW: 'Confirm New Password', changePW: '🔒 Change Password',
+        contacts: '👥 Contacts', searchUsers: 'Search users',
+        searchPH: 'Username or name', sendTo: 'Send to',
+        messagePH: 'Type your love letter here...', message: 'Message',
+        photoOptional: 'Photo (optional)', tapPhoto: 'Tap to add a photo',
+        removePhoto: '✕ Remove photo', send: '💌 Send',
+        createArt: '🎨 Create Art',
+        received: '📨 Received', sent: '📤 Sent', noMessages: 'No messages yet!',
+        allRecipients: 'All recipients', loadMore: 'Load more',
+        remaining: 'remaining', markRead: '✓ Mark read', delete: '🗑 Delete',
+        unsend: '⏪ Unsend', hideFromSent: '🗑 Hide from sent',
+        deleteConfirm: 'Delete this message?',
+        unsendConfirm: "Unsend this message? It will be removed from the recipient's mailbox.",
+        removeConfirm: 'Remove {name} from contacts?',
+        sending: 'Sending...', sentTo: '✅ Sent to {name}! 🚩',
+        noContacts: 'No contacts yet — add in ⚙️ Settings',
+        pendingRequests: '📩 Pending Requests', yourContacts: 'Your Contacts',
+        accept: '✓ Accept', reject: '✕', remove: '✕ Remove', add: '+ Add',
+        pwRequired: 'Current and new password required', pwNoMatch: 'Passwords do not match',
+        pwTooShort: 'Password must be at least 12 characters',
+        pwNoSpecial: 'Password must contain a special character',
+        pwChanging: 'Changing password...', pwChanged: '✅ Password changed!',
+        pwYourPH: 'Your password',
+        language: '🌐 Language', unread: 'Unread', read: 'Read',
+        delivered: 'Delivered', sentAt: 'Sent',
+        hi: 'Hi', loggedOut: 'Logged out',
+        regPwNoMatch: 'Passwords do not match',
+        inappropriateContent: 'Message contains inappropriate content.',
+        imageInappropriate: 'Image contains inappropriate content.',
+        allFieldsRequired: 'All fields required',
+        signingIn: 'Signing in...',
+        enterUsernamePass: 'Please enter username and password',
+        creatingAccount: 'Creating account...',
+        enterMessage: 'Please enter a message or add a photo',
+        clearAll: 'Clear everything?',
+        enterText: 'Enter your text:',
+        searchingGifs: 'Searching...',
+        noResults: 'No results',
+        searchFailed: 'Search failed',
+        resetting: 'Resetting...',
+        hideFromSent: '🗑 Hide from sent',
+        mustChangePw: 'You must change your password before continuing',
+        photoMaxSize: 'Max 2MB',
+        noUsersFound: 'No users found',
+      },
+      es: {
+        title: 'Buzón de Cartas de Amor', subtitle: 'Inicia sesión para enviar y recibir mensajes',
+        username: 'Usuario', password: 'Contraseña', signIn: '🔑 Iniciar Sesión',
+        noAccount: '¿No tienes cuenta?', createOne: 'Crear una',
+        forgotPassword: '¿Olvidaste tu contraseña?',
+        forgotPasswordTitle: 'Restablecer Contraseña',
+        forgotPasswordDesc: 'Ingresa tu usuario y enviaremos un código a tu correo registrado.',
+        sendResetCode: '📧 Enviar Código', backToSignIn: '← Volver a Iniciar Sesión',
+        enterResetCode: 'Ingresar Código', enterResetCodeDesc: 'Revisa tu correo para un código de 6 dígitos.',
+        resetCode: 'Código', newPassword: 'Nueva Contraseña',
+        resetPasswordBtn: '🔑 Restablecer Contraseña',
+        email: 'Correo', emailPH: 'Para recuperación de contraseña',
+        createAccount: 'Crear Cuenta', joinTitle: 'Únete al Buzón de Cartas de Amor',
+        displayName: 'Nombre para Mostrar', displayNamePH: 'Cómo te verán los demás',
+        usernamePH: 'letras, números, guion bajo (3-20)',
+        passwordPH: 'Mín 12 chars, mayús+minús+número+especial',
+        confirmPassword: 'Confirmar Contraseña', repeatPW: 'Repetir contraseña',
+        registerBtn: '📝 Crear Cuenta', haveAccount: '¿Ya tienes cuenta?',
+        signInLink: 'Iniciar sesión', sendMessage: 'Enviar un mensaje', signOut: 'Cerrar sesión',
+        settings: '⚙️ Configuración', saveEmail: '💾 Guardar Correo', emailSaved: '✅ ¡Correo guardado!',
+        currentPW: 'Contraseña Actual', newPW: 'Nueva Contraseña',
+        confirmNewPW: 'Confirmar Nueva Contraseña', changePW: '🔒 Cambiar Contraseña',
+        contacts: '👥 Contactos', searchUsers: 'Buscar usuarios',
+        searchPH: 'Usuario o nombre', sendTo: 'Enviar a',
+        messagePH: 'Escribe tu carta de amor aquí...', message: 'Mensaje',
+        photoOptional: 'Foto (opcional)', tapPhoto: 'Toca para agregar foto',
+        removePhoto: '✕ Quitar foto', send: '💌 Enviar',
+        createArt: '🎨 Crear Arte',
+        received: '📨 Recibidos', sent: '📤 Enviados', noMessages: '¡Aún no hay mensajes!',
+        allRecipients: 'Todos los destinatarios', loadMore: 'Cargar más',
+        remaining: 'restantes', markRead: '✓ Marcar leído', delete: '🗑 Eliminar',
+        unsend: '⏪ Deshacer envío', hideFromSent: '🗑 Ocultar de enviados',
+        deleteConfirm: '¿Eliminar este mensaje?',
+        unsendConfirm: '¿Deshacer envío? Se eliminará del buzón del destinatario.',
+        removeConfirm: '¿Eliminar a {name} de contactos?',
+        sending: 'Enviando...', sentTo: '✅ ¡Enviado a {name}! 🚩',
+        noContacts: 'Sin contactos — agrega en ⚙️ Configuración',
+        pendingRequests: '📩 Solicitudes Pendientes', yourContacts: 'Tus Contactos',
+        accept: '✓ Aceptar', reject: '✕', remove: '✕ Eliminar', add: '+ Agregar',
+        pwRequired: 'Contraseña actual y nueva requeridas', pwNoMatch: 'Las contraseñas no coinciden',
+        pwTooShort: 'La contraseña debe tener al menos 12 caracteres',
+        pwNoSpecial: 'La contraseña debe contener un carácter especial',
+        pwChanging: 'Cambiando contraseña...', pwChanged: '✅ ¡Contraseña cambiada!',
+        pwYourPH: 'Tu contraseña',
+        language: '🌐 Idioma', unread: 'No leído', read: 'Leído',
+        delivered: 'Entregado', sentAt: 'Enviado',
+        hi: 'Hola', loggedOut: 'Sesión cerrada',
+        regPwNoMatch: 'Las contraseñas no coinciden',
+        inappropriateContent: 'El mensaje contiene contenido inapropiado.',
+        imageInappropriate: 'La imagen contiene contenido inapropiado.',
+        allFieldsRequired: 'Todos los campos son obligatorios',
+        signingIn: 'Iniciando sesión...',
+        enterUsernamePass: 'Ingresa usuario y contraseña',
+        creatingAccount: 'Creando cuenta...',
+        enterMessage: 'Escribe un mensaje o agrega una foto',
+        clearAll: '¿Borrar todo?',
+        enterText: 'Escribe tu texto:',
+        searchingGifs: 'Buscando...',
+        noResults: 'Sin resultados',
+        searchFailed: 'Búsqueda fallida',
+        resetting: 'Restableciendo...',
+        hideFromSent: '🗑 Ocultar de enviados',
+        mustChangePw: 'Debes cambiar tu contraseña antes de continuar',
+        photoMaxSize: 'Máx 2MB',
+        noUsersFound: 'No se encontraron usuarios',
+      }
+    };
+    let currentLang = localStorage.getItem('lang') || 'en';
+    function t(key) { return (i18n[currentLang] && i18n[currentLang][key]) || i18n.en[key] || key; }
+
+    function applyLanguage() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') el.placeholder = t(key);
+        else if (el.tagName === 'OPTION') el.textContent = t(key);
+        else if (el.tagName === 'LABEL') el.textContent = t(key);
+        else el.textContent = t(key);
+      });
+      document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+        el.placeholder = t(el.getAttribute('data-i18n-ph'));
+      });
+      document.documentElement.lang = currentLang;
+      // Sync ALL language dropdowns
+      const langSel = document.getElementById('langSelect');
+      if (langSel) langSel.value = currentLang;
+      const loginLangSel = document.getElementById('loginLangSelect');
+      if (loginLangSel) loginLangSel.value = currentLang;
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang;
+      localStorage.setItem('lang', lang);
+      applyLanguage();
+      // Refresh messages if logged in
+      if (currentUser) loadMessages();
+    }
+
+    // Apply language immediately on load
+    applyLanguage();
+
+    const API_BASE = '';
+    let selectedPhoto = null;
+    let authToken = localStorage.getItem('authToken');
+    let currentUser = null;
+
+    // Try to restore session
+    if (authToken) {
+      try {
+        const payload = JSON.parse(atob(authToken.split('.')[1]));
+        if (payload.exp * 1000 > Date.now()) {
+          currentUser = payload;
+          showApp();
+          // Re-enforce forced password change on refresh
+          if (localStorage.getItem('mustChangePassword') === 'true') {
+            forcePasswordChange();
+          }
+        } else {
+          logout();
+        }
+      } catch { logout(); }
+    }
+
+    // --- LOGIN ---
+    document.getElementById('loginBtn').addEventListener('click', login);
+    document.getElementById('loginPass').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') login();
+    });
+
+    async function login() {
+      const username = document.getElementById('loginUser').value.trim().toLowerCase();
+      const password = document.getElementById('loginPass').value;
+      const status = document.getElementById('loginStatus');
+      const btn = document.getElementById('loginBtn');
+
+      if (!username || !password) {
+        status.textContent = t('enterUsernamePass');
+        status.className = 'status error';
+        return;
+      }
+
+      btn.disabled = true;
+      status.textContent = t('signingIn');
+      status.className = 'status sending';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          throw new Error(err.error || 'Invalid credentials');
+        }
+
+        const data = await res.json();
+        authToken = data.token;
+        localStorage.setItem('authToken', authToken);
+        currentUser = {
+          username: data.username,
+          partner: data.partner,
+          displayName: data.displayName,
+          partnerDisplayName: data.partnerDisplayName,
+          mustChangePassword: data.mustChangePassword
+        };
+        showApp();
+        if (data.mustChangePassword) {
+          localStorage.setItem('mustChangePassword', 'true');
+          forcePasswordChange();
+        }
+      } catch (err) {
+        status.textContent = `❌ ${err.message}`;
+        status.className = 'status error';
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function logout() {
+      // Revoke token server-side before clearing locally
+      if (authToken) {
+        try {
+          await fetch(`${API_BASE}/api/auth/logout`, { method: 'POST', headers: { 'x-auth-token': authToken } });
+        } catch { /* best effort */ }
+      }
+      authToken = null;
+      currentUser = null;
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('mustChangePassword');
+      document.getElementById('loginScreen').classList.remove('hidden');
+      document.getElementById('appScreen').classList.add('hidden');
+      document.getElementById('loginUser').value = '';
+      document.getElementById('loginPass').value = '';
+      document.getElementById('loginStatus').textContent = '';
+    }
+
+    function showApp() {
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('registerScreen').classList.add('hidden');
+      document.getElementById('appScreen').classList.remove('hidden');
+
+      const displayName = currentUser.displayName || currentUser.username;
+      document.getElementById('greetingText').textContent = `${t('hi')}, ${displayName} 💕`;
+      document.getElementById('appSubtitle').textContent = t('sendMessage');
+      document.getElementById('sendBtn').textContent = t('send');
+
+      populateRecipients();
+      loadMessages();
+    }
+
+    // --- REGISTRATION ---
+    document.getElementById('showRegister').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('loginScreen').classList.add('hidden');
+      document.getElementById('registerScreen').classList.remove('hidden');
+    });
+    document.getElementById('showLogin').addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('registerScreen').classList.add('hidden');
+      document.getElementById('loginScreen').classList.remove('hidden');
+    });
+
+    // Forgot password navigation
+    function hideAllAuthScreens() {
+      ['loginScreen','registerScreen','forgotPwScreen','resetPwScreen'].forEach(id =>
+        document.getElementById(id).classList.add('hidden'));
+    }
+    document.getElementById('showForgotPw').addEventListener('click', (e) => {
+      e.preventDefault(); hideAllAuthScreens();
+      document.getElementById('forgotPwScreen').classList.remove('hidden');
+    });
+    document.getElementById('forgotBackToLogin').addEventListener('click', (e) => {
+      e.preventDefault(); hideAllAuthScreens();
+      document.getElementById('loginScreen').classList.remove('hidden');
+    });
+    document.getElementById('resetBackToLogin').addEventListener('click', (e) => {
+      e.preventDefault(); hideAllAuthScreens();
+      document.getElementById('loginScreen').classList.remove('hidden');
+    });
+
+    // Forgot password — request code
+    let forgotPwUsername = '';
+    document.getElementById('forgotPwBtn').addEventListener('click', async () => {
+      const username = document.getElementById('forgotUser').value.trim();
+      const status = document.getElementById('forgotStatus');
+      if (!username) { status.textContent = t('enterUsernamePass'); status.className = 'status error'; return; }
+      status.textContent = t('sending'); status.className = 'status sending';
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/forgot-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        forgotPwUsername = username;
+        hideAllAuthScreens();
+        document.getElementById('resetPwScreen').classList.remove('hidden');
+        document.getElementById('resetStatus').textContent = data.message;
+        document.getElementById('resetStatus').className = 'status';
+      } catch (err) {
+        status.textContent = err.message; status.className = 'status error';
+      }
+    });
+
+    // Reset password — submit code + new password
+    document.getElementById('resetPwBtn').addEventListener('click', async () => {
+      const code = document.getElementById('resetCode').value.trim();
+      const newPassword = document.getElementById('resetNewPass').value;
+      const confirm = document.getElementById('resetNewPassConfirm').value;
+      const status = document.getElementById('resetStatus');
+      if (!code || !newPassword) { status.textContent = t('allFieldsRequired'); status.className = 'status error'; return; }
+      if (newPassword !== confirm) { status.textContent = t('pwNoMatch'); status.className = 'status error'; return; }
+      status.textContent = t('resetting'); status.className = 'status sending';
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/reset-password`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username: forgotPwUsername, code, newPassword })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        status.textContent = '✅ ' + data.message; status.className = 'status';
+        setTimeout(() => { hideAllAuthScreens(); document.getElementById('loginScreen').classList.remove('hidden'); }, 2000);
+      } catch (err) {
+        status.textContent = err.message; status.className = 'status error';
+      }
+    });
+
+    document.getElementById('registerBtn').addEventListener('click', async () => {
+      const username = document.getElementById('regUser').value.trim();
+      const displayName = document.getElementById('regDisplayName').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPass').value;
+      const confirm = document.getElementById('regPassConfirm').value;
+      const status = document.getElementById('regStatus');
+
+      if (!username || !displayName || !password || !email) {
+        status.textContent = t('allFieldsRequired');
+        status.className = 'status error';
+        return;
+      }
+      if (password !== confirm) {
+        status.textContent = t('pwNoMatch');
+        status.className = 'status error';
+        return;
+      }
+
+      status.textContent = t('creatingAccount');
+      status.className = 'status sending';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, displayName, email, password })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+
+        authToken = data.token;
+        localStorage.setItem('authToken', authToken);
+        currentUser = { username: data.username, displayName: data.displayName, partner: '', partnerDisplayName: '' };
+        document.getElementById('registerScreen').classList.add('hidden');
+        showApp();
+      } catch (err) {
+        status.textContent = `❌ ${err.message}`;
+        status.className = 'status error';
+      }
+    });
+
+    // --- CONTACTS ---
+    async function loadContacts() {
+      if (!authToken) return [];
+      try {
+        const res = await fetch(`${API_BASE}/api/contacts`, { headers: authHeaders() });
+        if (!res.ok) return [];
+        return await res.json();
+      } catch { return []; }
+    }
+
+    async function populateRecipients() {
+      const contacts = await loadContacts();
+      const select = document.getElementById('recipientSelect');
+      select.innerHTML = '';
+      if (contacts.length === 0) {
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = t('noContacts');
+        opt.disabled = true;
+        opt.selected = true;
+        select.appendChild(opt);
+      }
+      contacts.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.username;
+        opt.textContent = c.displayName;
+        select.appendChild(opt);
+      });
+      // Also update the filter dropdown
+      populateFilterDropdown(contacts);
+    }
+
+    async function searchUsers() {
+      const q = document.getElementById('searchUserInput').value.trim();
+      if (q.length < 2) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/contacts/search?q=${encodeURIComponent(q)}`, { headers: authHeaders() });
+        const users = await res.json();
+        const div = document.getElementById('searchResults');
+        if (users.length === 0) {
+          div.innerHTML = `<div style="color:#888;font-size:13px;padding:4px">${t('noResults')}</div>`;
+          return;
+        }
+        div.innerHTML = users.map(u => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0">
+            <span style="font-size:14px"><strong>${escapeHtml(u.displayName)}</strong> <span style="color:#888">@${escapeHtml(u.username)}</span></span>
+            <button class="msg-action-btn add-contact-btn" data-username="${escapeHtml(u.username)}">➕ ${t('add')}</button>
+          </div>
+        `).join('');
+        div.querySelectorAll('.add-contact-btn').forEach(btn => {
+          btn.addEventListener('click', () => sendConnectRequest(btn.dataset.username));
+        });
+      } catch (err) { console.log('Search failed:', err); }
+    }
+
+    async function sendConnectRequest(username) {
+      try {
+        const res = await fetch(`${API_BASE}/api/contacts/request`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ username })
+        });
+        const data = await res.json();
+        alert(data.message || data.error);
+      } catch (err) { alert('Request failed'); }
+    }
+
+    async function loadPendingRequests() {
+      try {
+        const res = await fetch(`${API_BASE}/api/contacts/pending`, { headers: authHeaders() });
+        const pending = await res.json();
+        const div = document.getElementById('pendingRequests');
+        if (pending.length === 0) { div.innerHTML = ''; return; }
+        div.innerHTML = `<h4 style="font-size:13px;color:#ff6b6b;margin:12px 0 6px">${t('pendingRequests')}</h4>` +
+          pending.map(p => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0">
+              <span style="font-size:14px"><strong>${escapeHtml(p.displayName)}</strong> <span style="color:#888">@${escapeHtml(p.username)}</span></span>
+              <div>
+                <button class="msg-action-btn accept-btn" data-username="${escapeHtml(p.username)}">${t('accept')}</button>
+                <button class="msg-action-btn delete reject-btn" data-username="${escapeHtml(p.username)}">${t('reject')}</button>
+              </div>
+            </div>
+          `).join('');
+        div.querySelectorAll('.accept-btn').forEach(btn => {
+          btn.addEventListener('click', () => acceptContact(btn.dataset.username));
+        });
+        div.querySelectorAll('.reject-btn').forEach(btn => {
+          btn.addEventListener('click', () => rejectContact(btn.dataset.username));
+        });
+      } catch {}
+    }
+
+    async function loadContactsList() {
+      const contacts = await loadContacts();
+      const div = document.getElementById('contactsList');
+      if (contacts.length === 0) {
+        div.innerHTML = `<div style="color:#888;font-size:13px">${t('noContacts')}</div>`;
+        return;
+      }
+      div.innerHTML = `<h4 style="font-size:13px;color:#667eea;margin-bottom:6px">${t('yourContacts')}</h4>` +
+        contacts.map(c => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #f0f0f0">
+            <span style="font-size:14px"><strong>${escapeHtml(c.displayName)}</strong> <span style="color:#888">@${escapeHtml(c.username)}</span></span>
+            <button class="msg-action-btn delete remove-contact-btn" data-username="${escapeHtml(c.username)}">${t('remove')}</button>
+          </div>
+        `).join('');
+      div.querySelectorAll('.remove-contact-btn').forEach(btn => {
+        btn.addEventListener('click', () => removeContact(btn.dataset.username));
+      });
+    }
+
+    async function acceptContact(username) {
+      await fetch(`${API_BASE}/api/contacts/accept`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ username }) });
+      loadPendingRequests();
+      loadContactsList();
+      populateRecipients();
+    }
+
+    async function rejectContact(username) {
+      await fetch(`${API_BASE}/api/contacts/reject`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ username }) });
+      loadPendingRequests();
+    }
+
+    async function removeContact(username) {
+      if (!confirm(t('removeConfirm').replace('{name}', username))) return;
+      await fetch(`${API_BASE}/api/contacts?username=${encodeURIComponent(username)}`, { method: 'DELETE', headers: authHeaders() });
+      loadContactsList();
+      populateRecipients();
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', logout);
+
+    // --- SETTINGS ---
+    document.getElementById('settingsBtn').addEventListener('click', async () => {
+      document.getElementById('settingsModal').classList.remove('hidden');
+      document.getElementById('currentPw').value = '';
+      document.getElementById('newPw').value = '';
+      document.getElementById('confirmPw').value = '';
+      document.getElementById('pwStatus').textContent = '';
+      document.getElementById('emailStatus').textContent = '';
+      document.getElementById('searchUserInput').value = '';
+      document.getElementById('searchResults').innerHTML = '';
+      // Load current email
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/profile`, { headers: authHeaders() });
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('settingsEmail').value = data.email || '';
+        }
+      } catch { /* ignore */ }
+      loadPendingRequests();
+      loadContactsList();
+    });
+    document.getElementById('closeSettings').addEventListener('click', () => {
+      document.getElementById('settingsModal').classList.add('hidden');
+    });
+
+    // Save email
+    document.getElementById('saveEmailBtn').addEventListener('click', async () => {
+      const email = document.getElementById('settingsEmail').value.trim();
+      const status = document.getElementById('emailStatus');
+      if (!email) { status.textContent = t('allFieldsRequired'); status.className = 'status error'; return; }
+      status.textContent = t('sending'); status.className = 'status sending';
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/update-email`, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ email })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        status.textContent = t('emailSaved'); status.className = 'status success';
+      } catch (err) {
+        status.textContent = err.message; status.className = 'status error';
+      }
+    });
+
+    document.getElementById('changePwBtn').addEventListener('click', async () => {
+      const currentPassword = document.getElementById('currentPw').value;
+      const newPassword = document.getElementById('newPw').value;
+      const confirmPw = document.getElementById('confirmPw').value;
+      const status = document.getElementById('pwStatus');
+
+      if (!currentPassword || !newPassword) {
+        status.textContent = t('allFieldsRequired');
+        status.className = 'status error';
+        return;
+      }
+      if (newPassword !== confirmPw) {
+        status.textContent = t('pwNoMatch');
+        status.className = 'status error';
+        return;
+      }
+      if (newPassword.length < 12) {
+        status.textContent = t('pwTooShort');
+        status.className = 'status error';
+        return;
+      }
+      if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(newPassword)) {
+        status.textContent = t('pwNoSpecial');
+        status.className = 'status error';
+        return;
+      }
+
+      status.textContent = t('pwChanging');
+      status.className = 'status sending';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/auth/change-password`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error);
+        // Update token (old one was revoked server-side)
+        if (data.token) {
+          authToken = data.token;
+          localStorage.setItem('authToken', authToken);
+        }
+        status.textContent = t('pwChanged');
+        status.className = 'status success';
+        document.getElementById('currentPw').value = '';
+        document.getElementById('newPw').value = '';
+        document.getElementById('confirmPw').value = '';
+      } catch (err) {
+        status.textContent = `❌ ${err.message}`;
+        status.className = 'status error';
+      }
+    });
+
+    // --- AUTH HELPER ---
+    function authHeaders() {
+      return { 'x-auth-token': authToken, 'Content-Type': 'application/json' };
+    }
+
+    // --- CHARACTER COUNTER ---
+    document.getElementById('messageText').addEventListener('input', (e) => {
+      document.getElementById('charCounter').textContent = `${e.target.value.length}/500`;
+    });
+
+    // --- PHOTO UPLOAD ---
+    const photoInput = document.getElementById('photoInput');
+    const photoUpload = document.getElementById('photoUpload');
+    const photoPreview = document.getElementById('photoPreview');
+
+    photoInput.addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const resized = await resizeImage(file, 240, 320);
+      selectedPhoto = resized;
+      photoPreview.src = resized.dataUrl;
+      photoUpload.classList.add('has-photo');
+    });
+
+    document.getElementById('removePhoto').addEventListener('click', (e) => {
+      e.preventDefault();
+      selectedPhoto = null;
+      photoInput.value = '';
+      photoUpload.classList.remove('has-photo');
+    });
+
+    function resizeImage(file, maxW, maxH) {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const ratio = Math.min(maxW / img.width, maxH / img.height);
+            const w = Math.round(img.width * ratio);
+            const h = Math.round(img.height * ratio);
+            const c = document.createElement('canvas');
+            c.width = w; c.height = h;
+            c.getContext('2d').drawImage(img, 0, 0, w, h);
+            const dataUrl = c.toDataURL('image/jpeg', 0.8);
+            resolve({ dataUrl });
+          };
+          img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // --- SEND MESSAGE ---
+    document.getElementById('sendBtn').addEventListener('click', sendMessage);
+
+    async function sendMessage() {
+      const text = document.getElementById('messageText').value.trim();
+      const status = document.getElementById('status');
+      const sendBtn = document.getElementById('sendBtn');
+
+      if (!text && !selectedPhoto) {
+        status.textContent = t('enterMessage');
+        status.className = 'status error';
+        return;
+      }
+
+      sendBtn.disabled = true;
+      status.textContent = t('sending');
+      status.className = 'status sending';
+
+      try {
+        const recipient = document.getElementById('recipientSelect').value;
+        const payload = {
+          text: text || '',
+          recipient,
+          hasPhoto: !!selectedPhoto,
+          photoData: selectedPhoto ? selectedPhoto.dataUrl : null
+        };
+
+        const res = await fetch(`${API_BASE}/api/messages`, {
+          method: 'POST',
+          headers: authHeaders(),
+          body: JSON.stringify(payload)
+        });
+
+        if (res.status === 401) { logout(); return; }
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+
+        const recipientName = document.getElementById('recipientSelect').selectedOptions[0].textContent;
+        status.textContent = t('sentTo').replace('{name}', recipientName);
+        status.className = 'status success';
+
+        document.getElementById('messageText').value = '';
+        document.getElementById('charCounter').textContent = '0/500';
+        selectedPhoto = null;
+        photoInput.value = '';
+        photoUpload.classList.remove('has-photo');
+        switchTab('sent');
+        setTimeout(() => { status.textContent = ''; status.className = 'status'; }, 5000);
+      } catch (err) {
+        status.textContent = `❌ Failed to send: ${err.message}`;
+        status.className = 'status error';
+      } finally {
+        sendBtn.disabled = false;
+      }
+    }
+
+    let currentTab = 'received';
+    let currentPage = 0;
+
+    function switchTab(tab) {
+      currentTab = tab;
+      currentPage = 0;
+      document.getElementById('tabReceived').classList.toggle('active', tab === 'received');
+      document.getElementById('tabSent').classList.toggle('active', tab === 'sent');
+      document.getElementById('sentFilter').classList.toggle('hidden', tab !== 'sent');
+      if (tab === 'sent') populateFilterDropdown();
+      loadMessages();
+    }
+
+    function populateFilterDropdown(contacts) {
+      const select = document.getElementById('filterRecipient');
+      const current = select.value;
+      select.innerHTML = `<option value="">${t('allRecipients')}</option>`;
+      (contacts || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.username;
+        opt.textContent = c.displayName;
+        select.appendChild(opt);
+      });
+      select.value = current;
+    }
+
+    // --- LOAD MESSAGES ---
+    async function loadMessages(append) {
+      if (!authToken) return;
+      try {
+        let params = `page=${currentPage}`;
+        if (currentTab === 'sent') {
+          params += '&view=sent';
+          const filterVal = document.getElementById('filterRecipient').value;
+          if (filterVal) params += `&recipient=${encodeURIComponent(filterVal)}`;
+        }
+        const res = await fetch(`${API_BASE}/api/messages?${params}`, { headers: authHeaders() });
+        if (res.status === 401) { logout(); return; }
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const messages = data.messages || [];
+        const list = document.getElementById('messageList');
+
+        if (messages.length === 0 && currentPage === 0) {
+          list.innerHTML = `<div class="empty-state">${t('noMessages')}</div>`;
+          return;
+        }
+
+        const html = messages.map(msg => {
+          const statusLabel = currentTab === 'sent'
+            ? (msg.read ? `✓ ${t('read')}` : `● ${t('delivered')}`)
+            : (msg.read ? `✓ ${t('read')}` : `● ${t('unread')}`);
+          const statusClass = msg.read ? 'read' : 'unread';
+          const recipientLine = currentTab === 'sent' && msg.recipient
+            ? `<span class="msg-to">→ ${escapeHtml(msg.recipient)}</span>` : '';
+          const actions = currentTab === 'received'
+            ? `<div class="msg-actions">
+                ${!msg.read ? `<button class="msg-action-btn" onclick="markRead('${escapeHtml(msg.id)}')">${t('markRead')}</button>` : ''}
+                <button class="msg-action-btn delete" onclick="deleteMsg('${escapeHtml(msg.id)}')">${t('delete')}</button>
+               </div>`
+            : `<div class="msg-actions">
+                ${msg.canUnsend ? `<button class="msg-action-btn delete" onclick="unsendMsg('${escapeHtml(msg.id)}','${escapeHtml(msg.recipient)}')">${t('unsend')}</button>` : ''}
+                <button class="msg-action-btn delete" onclick="deleteMsg('${escapeHtml(msg.id)}','${escapeHtml(msg.recipient)}')">${t('hideFromSent')}</button>
+               </div>`;
+          return `
+            <div class="msg-item" id="msg-${escapeHtml(msg.id)}">
+              <div class="msg-sender">${escapeHtml(msg.sender)} ${recipientLine}</div>
+              ${msg.text ? `<div class="msg-text">${escapeHtml(msg.text)}</div>` : ''}
+              ${msg.photoUrl ? `<img class="msg-photo" src="${escapeHtml(msg.photoUrl)}" alt="Photo">` : ''}
+              <div class="msg-time">${formatTime(msg.timestamp)}</div>
+              <div class="msg-status ${statusClass}">${statusLabel}</div>
+              ${actions}
+            </div>
+          `;
+        }).join('');
+
+        if (append) {
+          const oldBtn = list.querySelector('.load-more');
+          if (oldBtn) oldBtn.remove();
+          list.insertAdjacentHTML('beforeend', html);
+        } else {
+          list.innerHTML = html;
+        }
+
+        if (data.hasMore) {
+          const remaining = data.total - (currentPage + 1) * 10;
+          list.insertAdjacentHTML('beforeend',
+            `<button class="load-more" onclick="loadMore()">${t('loadMore')} (${remaining} ${t('remaining')})</button>`
+          );
+        }
+
+        // Update unread badge
+        if (data.unreadCount !== undefined) updateBadge(data.unreadCount);
+      } catch (err) {
+        console.log('Could not load messages:', err);
+      }
+    }
+
+    function escapeHtml(text) {
+      const d = document.createElement('div');
+      d.textContent = text;
+      return d.innerHTML;
+    }
+
+    function loadMore() {
+      currentPage++;
+      loadMessages(true);
+    }
+
+    function updateBadge(count) {
+      const badge = document.getElementById('unreadBadge');
+      if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    async function markRead(id) {
+      try {
+        await fetch(`${API_BASE}/api/messages/${id}`, { method: 'PATCH', headers: authHeaders() });
+        loadMessages();
+      } catch (err) { console.log('Mark read failed:', err); }
+    }
+
+    async function deleteMsg(id, mailbox) {
+      if (!confirm(t('deleteConfirm'))) return;
+      try {
+        const mb = mailbox ? `?mailbox=${encodeURIComponent(mailbox)}` : '';
+        await fetch(`${API_BASE}/api/messages/${id}${mb}`, { method: 'DELETE', headers: authHeaders() });
+        const el = document.getElementById('msg-' + id);
+        if (el) el.remove();
+        loadMessages();
+      } catch (err) { console.log('Delete failed:', err); }
+    }
+
+    async function unsendMsg(id, mailbox) {
+      if (!confirm(t('unsendConfirm'))) return;
+      try {
+        const res = await fetch(`${API_BASE}/api/messages/${id}?action=unsend&mailbox=${encodeURIComponent(mailbox)}`, { method: 'DELETE', headers: authHeaders() });
+        if (!res.ok) {
+          const data = await res.json();
+          alert(data.error || 'Could not unsend');
+          return;
+        }
+        const el = document.getElementById('msg-' + id);
+        if (el) el.remove();
+        loadMessages();
+      } catch (err) { console.log('Unsend failed:', err); }
+    }
+
+    function formatTime(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // --- FORCE PASSWORD CHANGE ---
+    function forcePasswordChange() {
+      document.getElementById('settingsModal').classList.remove('hidden');
+      document.getElementById('closeSettings').classList.add('hidden');
+      document.getElementById('forcePwLogout').classList.remove('hidden');
+      document.getElementById('pwStatus').textContent = '🔒 ' + t('pwRequired');
+      document.getElementById('pwStatus').className = 'status sending';
+      // Override the change handler to unlock after success
+      const origHandler = document.getElementById('changePwBtn').onclick;
+      const pwBtn = document.getElementById('changePwBtn');
+      const origClick = pwBtn.cloneNode(true);
+      // After successful password change, re-enable close and hide modal
+      const observer = new MutationObserver(() => {
+        const status = document.getElementById('pwStatus');
+        if (status.className.includes('success')) {
+          currentUser.mustChangePassword = false;
+          localStorage.removeItem('mustChangePassword');
+          document.getElementById('closeSettings').classList.remove('hidden');
+          document.getElementById('forcePwLogout').classList.add('hidden');
+          document.getElementById('settingsModal').classList.add('hidden');
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.getElementById('pwStatus'), { childList: true, characterData: true, subtree: true });
+    }
+
+    // --- SESSION TIMEOUT (15 min inactivity) ---
+    const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+    let lastActivity = Date.now();
+
+    function resetActivityTimer() {
+      lastActivity = Date.now();
+    }
+
+    ['click', 'keydown', 'touchstart', 'scroll'].forEach(evt => {
+      document.addEventListener(evt, resetActivityTimer, { passive: true });
+    });
+
+    setInterval(() => {
+      if (authToken && (Date.now() - lastActivity > SESSION_TIMEOUT_MS)) {
+        logout();
+        document.getElementById('loginStatus').textContent = '⏱️ Session timed out — please sign in again';
+        document.getElementById('loginStatus').className = 'status error';
+      }
+    }, 30000);
+
+    setInterval(loadMessages, 30000);
+
+    // ============================================================
+    // CREATIVE STUDIO v2 — TikTok-style with draggable layers
+    // ============================================================
+    (function() {
+      const CANVAS_W = 320, CANVAS_H = 420;
+      const EXPORT_W = 240, EXPORT_H = 320;
+      let ctx, canvas, canvasWrap;
+      let drawing = false, tool = 'pen';
+      let brushColor = '#ff4757', brushSize = 4;
+      let undoStack = [], objects = [], selectedObj = null;
+      let dragState = null; // { obj, startX, startY, objStartX, objStartY, type:'move'|'resize' }
+      let displayScale = 1;
+
+      const fonts = [
+        { name: 'Sans', css: 'sans-serif', label: 'Clean' },
+        { name: 'Serif', css: 'Georgia, serif', label: 'Classic' },
+        { name: 'Handwriting', css: "'Segoe Script','Comic Sans MS',cursive", label: 'Handwriting' },
+        { name: 'Bold', css: "'Impact','Arial Black',sans-serif", label: 'BOLD' },
+        { name: 'Mono', css: "'Courier New',monospace", label: 'Typewriter' },
+        { name: 'Fancy', css: "'Palatino','Book Antiqua',serif", label: 'Elegant' },
+      ];
+      let currentFont = fonts[0];
+
+      const stickerSets = {
+        love: ['❤️','💕','💖','💗','💘','💝','💞','💓','💌','💐','💋','💑','💍','🥰','😘','😍','😻','🫶','💏','👩‍❤️‍👨'],
+        nature: ['🌹','🌸','🌺','🌻','🌷','🌼','🦋','🐝','🌈','☀️','🌙','⭐','✨','💫','🌟','⛅','🍀','🌿','🌴','🎄'],
+        fun: ['🎀','🎁','🎈','🎉','🎊','🧸','🎵','🎶','👑','🦄','🐻','🐰','🐱','🐶','💃','🕺','🎂','🧁','🍫','☕'],
+        faces: ['😊','🥺','😇','🤗','😎','🤩','😜','🥳','😴','🫣','🙈','🫡','🤭','😏','🥹','💀','👻','👽','🤖','🎃'],
+        symbols: ['🏠','✉️','📮','📝','🔑','⚡','🔥','❄️','🌊','🍂','🎯','💡','📌','🏆','🎪','🚀','✈️','🗺️','📸','🖍️'],
+      };
+
+      const backgrounds = [
+        { name: 'White', css: '#ffffff' },
+        { name: 'Blush', css: 'linear-gradient(135deg, #ffecd2, #fcb69f)' },
+        { name: 'Lavender', css: 'linear-gradient(135deg, #a18cd1, #fbc2eb)' },
+        { name: 'Sunset', css: 'linear-gradient(135deg, #f093fb, #f5576c)' },
+        { name: 'Ocean', css: 'linear-gradient(135deg, #667eea, #764ba2)' },
+        { name: 'Mint', css: 'linear-gradient(135deg, #a8edea, #fed6e3)' },
+        { name: 'Gold', css: 'linear-gradient(135deg, #f7971e, #ffd200)' },
+        { name: 'Night', css: 'linear-gradient(135deg, #0c3547, #3c1053)' },
+        { name: 'Rose', css: 'linear-gradient(135deg, #ee9ca7, #ffdde1)' },
+        { name: 'Sky', css: 'linear-gradient(135deg, #89f7fe, #66a6ff)' },
+      ];
+
+      // Build studio HTML
+      const studioHTML = `
+        <div id="studioOverlay" class="studio-overlay hidden">
+          <div class="studio-header">
+            <button id="studioCancel">✕</button>
+            <h2>🎨 Creative Studio</h2>
+            <button id="studioDone" style="background:#667eea;border-radius:20px;padding:6px 16px">✓ Done</button>
+          </div>
+          <div class="studio-canvas-wrap" id="studioCanvasWrap">
+            <canvas id="studioCanvas" width="${CANVAS_W}" height="${CANVAS_H}"></canvas>
+            <!-- Floating objects layer -->
+            <div id="studioObjLayer" style="position:absolute;top:0;left:0;right:0;bottom:0;pointer-events:none"></div>
+            <!-- Pickers -->
+            <div class="studio-picker" id="stickerPicker">
+              <button class="studio-picker-close" onclick="this.parentElement.classList.remove('open')">✕</button>
+              <h3>Tap a sticker to add it</h3>
+              <div class="studio-picker-tabs" id="stickerTabs"></div>
+              <div class="studio-picker-grid" id="stickerGrid"></div>
+            </div>
+            <div class="studio-picker" id="bgPicker">
+              <button class="studio-picker-close" onclick="this.parentElement.classList.remove('open')">✕</button>
+              <h3>Choose a background</h3>
+              <div class="studio-bg-grid" id="bgGrid"></div>
+            </div>
+            <div class="studio-picker" id="fontPicker">
+              <button class="studio-picker-close" onclick="this.parentElement.classList.remove('open')">✕</button>
+              <h3>Choose a font</h3>
+              <div class="studio-font-grid" id="fontGrid"></div>
+            </div>
+            <div class="studio-picker" id="gifPicker">
+              <button class="studio-picker-close" onclick="this.parentElement.classList.remove('open')">✕</button>
+              <h3>Sticker Cards</h3>
+              <div class="studio-picker-tabs" id="gifCatTabs"></div>
+              <div class="studio-gif-grid" id="gifGrid" style="grid-template-columns:repeat(4,1fr)"></div>
+            </div>
+          </div>
+          <div class="studio-toolbar" id="studioToolbar">
+            <button id="toolPen" class="active" title="Draw">✏️</button>
+            <button id="toolEraser" title="Erase">🧹</button>
+            <button id="toolSticker" title="Stickers">😍</button>
+            <button id="toolText" title="Add Text">Aa</button>
+            <button id="toolFont" title="Fonts">🔤</button>
+            <button id="toolGif" title="GIFs">GIF</button>
+            <button id="toolBg" title="Background">🎨</button>
+            <label id="toolPhoto" title="Import Photo">📷<input type="file" id="studioPhotoInput" accept="image/*"></label>
+            <input type="color" id="studioColor" value="#ff4757" title="Color">
+            <input type="range" id="studioBrushSize" min="1" max="24" value="4" title="Size">
+            <button id="toolUndo" title="Undo">↩️</button>
+            <button id="toolClear" title="Clear All">🗑️</button>
+          </div>
+        </div>`;
+      document.body.insertAdjacentHTML('beforeend', studioHTML);
+
+      // --- Populate sticker tabs + grid ---
+      const stickerTabs = document.getElementById('stickerTabs');
+      const stickerGrid = document.getElementById('stickerGrid');
+      let activeStickerSet = 'love';
+
+      function renderStickerTab(setName) {
+        activeStickerSet = setName;
+        stickerTabs.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.set === setName));
+        stickerGrid.innerHTML = '';
+        stickerSets[setName].forEach(s => {
+          const span = document.createElement('span');
+          span.textContent = s;
+          span.addEventListener('click', () => addStickerObj(s));
+          stickerGrid.appendChild(span);
+        });
+      }
+
+      Object.keys(stickerSets).forEach(setName => {
+        const btn = document.createElement('button');
+        btn.textContent = setName.charAt(0).toUpperCase() + setName.slice(1);
+        btn.dataset.set = setName;
+        btn.addEventListener('click', () => renderStickerTab(setName));
+        stickerTabs.appendChild(btn);
+      });
+      renderStickerTab('love');
+
+      // --- Populate backgrounds ---
+      const bgGrid = document.getElementById('bgGrid');
+      backgrounds.forEach(bg => {
+        const div = document.createElement('div');
+        div.style.background = bg.css;
+        div.title = bg.name;
+        div.addEventListener('click', () => { saveUndo(); fillBackground(bg.css); });
+        bgGrid.appendChild(div);
+      });
+
+      // --- Populate fonts ---
+      const fontGrid = document.getElementById('fontGrid');
+      fonts.forEach(f => {
+        const btn = document.createElement('button');
+        btn.textContent = f.label;
+        btn.style.fontFamily = f.css;
+        btn.addEventListener('click', () => {
+          currentFont = f;
+          fontGrid.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        });
+        fontGrid.appendChild(btn);
+      });
+      fontGrid.children[0].classList.add('active');
+
+      // --- GIF / Animated Sticker Library ---
+      // Curated emoji art cards — always available, no API needed
+      const gifCategories = {
+        love: [
+          { emoji: '❤️', bg: 'linear-gradient(135deg,#ff6b6b,#ee5a24)', label: 'Love' },
+          { emoji: '💕', bg: 'linear-gradient(135deg,#fd79a8,#e84393)', label: 'Hearts' },
+          { emoji: '😍', bg: 'linear-gradient(135deg,#fdcb6e,#e17055)', label: 'Heart Eyes' },
+          { emoji: '💋', bg: 'linear-gradient(135deg,#e84393,#6c5ce7)', label: 'Kiss' },
+          { emoji: '🥰', bg: 'linear-gradient(135deg,#fab1a0,#e17055)', label: 'Adore' },
+          { emoji: '💌', bg: 'linear-gradient(135deg,#a29bfe,#6c5ce7)', label: 'Love Letter' },
+          { emoji: '💑', bg: 'linear-gradient(135deg,#fd79a8,#fdcb6e)', label: 'Couple' },
+          { emoji: '💍', bg: 'linear-gradient(135deg,#ffeaa7,#dfe6e9)', label: 'Ring' },
+        ],
+        greetings: [
+          { emoji: '👋', bg: 'linear-gradient(135deg,#74b9ff,#0984e3)', label: 'Hello' },
+          { emoji: '🌅', bg: 'linear-gradient(135deg,#ffeaa7,#fdcb6e)', label: 'Good Morning' },
+          { emoji: '🌙', bg: 'linear-gradient(135deg,#2d3436,#636e72)', label: 'Good Night' },
+          { emoji: '🤗', bg: 'linear-gradient(135deg,#55efc4,#00b894)', label: 'Hug' },
+          { emoji: '😘', bg: 'linear-gradient(135deg,#fd79a8,#e84393)', label: 'Blow Kiss' },
+          { emoji: '🙏', bg: 'linear-gradient(135deg,#dfe6e9,#b2bec3)', label: 'Thanks' },
+          { emoji: '🎉', bg: 'linear-gradient(135deg,#fdcb6e,#e17055)', label: 'Celebrate' },
+          { emoji: '🎂', bg: 'linear-gradient(135deg,#fab1a0,#e84393)', label: 'Birthday' },
+        ],
+        cute: [
+          { emoji: '🐻', bg: 'linear-gradient(135deg,#dfe6e9,#b2bec3)', label: 'Bear' },
+          { emoji: '🐰', bg: 'linear-gradient(135deg,#fab1a0,#ffeaa7)', label: 'Bunny' },
+          { emoji: '🦋', bg: 'linear-gradient(135deg,#74b9ff,#a29bfe)', label: 'Butterfly' },
+          { emoji: '🌸', bg: 'linear-gradient(135deg,#fd79a8,#fab1a0)', label: 'Blossom' },
+          { emoji: '🌈', bg: 'linear-gradient(135deg,#ff6b6b,#fdcb6e,#55efc4,#74b9ff,#a29bfe)', label: 'Rainbow' },
+          { emoji: '⭐', bg: 'linear-gradient(135deg,#ffeaa7,#fdcb6e)', label: 'Star' },
+          { emoji: '🧸', bg: 'linear-gradient(135deg,#dfe6e9,#fab1a0)', label: 'Teddy' },
+          { emoji: '🐶', bg: 'linear-gradient(135deg,#ffeaa7,#dfe6e9)', label: 'Puppy' },
+        ],
+        feelings: [
+          { emoji: '😊', bg: 'linear-gradient(135deg,#ffeaa7,#fdcb6e)', label: 'Happy' },
+          { emoji: '🥺', bg: 'linear-gradient(135deg,#74b9ff,#a29bfe)', label: 'Miss You' },
+          { emoji: '😴', bg: 'linear-gradient(135deg,#636e72,#2d3436)', label: 'Sleepy' },
+          { emoji: '🤩', bg: 'linear-gradient(135deg,#fdcb6e,#e17055)', label: 'Wow' },
+          { emoji: '💪', bg: 'linear-gradient(135deg,#00b894,#55efc4)', label: 'Strong' },
+          { emoji: '😇', bg: 'linear-gradient(135deg,#dfe6e9,#74b9ff)', label: 'Angel' },
+          { emoji: '🔥', bg: 'linear-gradient(135deg,#e17055,#d63031)', label: 'Fire' },
+          { emoji: '✨', bg: 'linear-gradient(135deg,#6c5ce7,#a29bfe)', label: 'Sparkle' },
+        ],
+      };
+
+      let activeGifCat = 'love';
+
+      function renderGifCards(catName) {
+        activeGifCat = catName;
+        const grid = document.getElementById('gifGrid');
+        grid.innerHTML = '';
+        // Update tabs
+        document.querySelectorAll('#gifCatTabs button').forEach(b =>
+          b.classList.toggle('active', b.dataset.cat === catName));
+        // Render cards
+        (gifCategories[catName] || []).forEach(card => {
+          const div = document.createElement('div');
+          div.style.cssText = `background:${card.bg};border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px;cursor:pointer;aspect-ratio:1;`;
+          div.innerHTML = `<span style="font-size:36px">${card.emoji}</span><span style="color:white;font-size:10px;text-shadow:0 1px 2px rgba(0,0,0,.4);margin-top:4px">${card.label}</span>`;
+          div.addEventListener('click', () => addGifCard(card));
+          grid.appendChild(div);
+        });
+      }
+
+      // Add a card as a canvas-rendered image object
+      function addGifCard(card) {
+        closePickers();
+        // Render emoji card to a small canvas
+        const c = document.createElement('canvas');
+        c.width = 120; c.height = 120;
+        const cx = c.getContext('2d');
+        // Draw gradient bg
+        const colors = card.bg.match(/#[a-f0-9]{6}/gi) || ['#667eea','#764ba2'];
+        const grad = cx.createLinearGradient(0, 0, 120, 120);
+        grad.addColorStop(0, colors[0]); grad.addColorStop(1, colors[colors.length-1]);
+        cx.fillStyle = grad;
+        cx.beginPath(); cx.roundRect(0, 0, 120, 120, 16); cx.fill();
+        // Draw emoji
+        cx.font = '52px serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+        cx.fillText(card.emoji, 60, 55);
+        // Draw label
+        cx.font = 'bold 11px sans-serif'; cx.fillStyle = 'rgba(255,255,255,0.9)';
+        cx.fillText(card.label, 60, 100);
+        // Add as image object
+        const url = c.toDataURL('image/png');
+        const wrap = document.createElement('div');
+        wrap.className = 'studio-obj'; wrap.style.pointerEvents = 'auto';
+        wrap.style.position = 'absolute'; wrap.style.left = '25%'; wrap.style.top = '25%';
+        wrap.dataset.type = 'gif';
+        const img = document.createElement('img');
+        img.src = url; img.style.width = '90px'; img.style.pointerEvents = 'none'; img.style.borderRadius = '12px';
+        wrap.appendChild(img);
+        const del = document.createElement('button');
+        del.className = 'obj-delete'; del.textContent = '✕';
+        del.addEventListener('click', (e) => { e.stopPropagation(); removeObj(wrap); });
+        wrap.appendChild(del);
+        const resize = document.createElement('div');
+        resize.className = 'obj-resize'; wrap.appendChild(resize);
+        wrap.addEventListener('mousedown', (e) => objPointerDown(e, wrap, resize));
+        wrap.addEventListener('touchstart', (e) => objPointerDown(e, wrap, resize), { passive: false });
+        resize.addEventListener('mousedown', (e) => { e.stopPropagation(); startResize(e, wrap); });
+        resize.addEventListener('touchstart', (e) => { e.stopPropagation(); e.preventDefault(); startResize(e, wrap); }, { passive: false });
+        document.getElementById('studioObjLayer').appendChild(wrap);
+        objects.push(wrap); selectObj(wrap);
+      }
+
+      function loadTrendingGifs() { renderGifCards('love'); }
+
+      // === LAYER OBJECTS (stickers, text, GIFs) ===
+      function createObjElement(content, type, extraStyles) {
+        const wrap = document.createElement('div');
+        wrap.className = 'studio-obj';
+        wrap.style.pointerEvents = 'auto';
+        wrap.style.position = 'absolute';
+        wrap.style.left = '30%'; wrap.style.top = '30%';
+        wrap.dataset.type = type;
+
+        const inner = document.createElement(type === 'gif' ? 'img' : 'div');
+        if (type === 'gif') {
+          inner.src = content; inner.crossOrigin = 'anonymous';
+          inner.style.width = '80px'; inner.style.pointerEvents = 'none';
+          inner.style.borderRadius = '8px';
+        } else if (type === 'sticker') {
+          inner.textContent = content;
+          inner.style.fontSize = '48px'; inner.style.lineHeight = '1';
+          inner.style.pointerEvents = 'none'; inner.style.userSelect = 'none';
+        } else if (type === 'text') {
+          inner.textContent = content;
+          inner.style.pointerEvents = 'none'; inner.style.userSelect = 'none';
+          Object.assign(inner.style, extraStyles || {});
+        }
+        wrap.appendChild(inner);
+
+        // Delete button
+        const del = document.createElement('button');
+        del.className = 'obj-delete'; del.textContent = '✕';
+        del.addEventListener('click', (e) => { e.stopPropagation(); removeObj(wrap); });
+        wrap.appendChild(del);
+
+        // Resize handle
+        const resize = document.createElement('div');
+        resize.className = 'obj-resize';
+        wrap.appendChild(resize);
+
+        // Click to select
+        wrap.addEventListener('mousedown', (e) => objPointerDown(e, wrap, resize));
+        wrap.addEventListener('touchstart', (e) => objPointerDown(e, wrap, resize), { passive: false });
+
+        // Resize handle events
+        resize.addEventListener('mousedown', (e) => { e.stopPropagation(); startResize(e, wrap); });
+        resize.addEventListener('touchstart', (e) => { e.stopPropagation(); e.preventDefault(); startResize(e, wrap); }, { passive: false });
+
+        const objLayer = document.getElementById('studioObjLayer');
+        objLayer.appendChild(wrap);
+        objects.push(wrap);
+        selectObj(wrap);
+        return wrap;
+      }
+
+      function addStickerObj(emoji) {
+        closePickers();
+        createObjElement(emoji, 'sticker');
+      }
+
+      function addGifObj(url) {
+        closePickers();
+        createObjElement(url, 'gif');
+      }
+
+      function addTextObj() {
+        const text = prompt(t('enterText'));
+        if (!text) return;
+        closePickers();
+        createObjElement(text, 'text', {
+          fontFamily: currentFont.css,
+          fontSize: Math.max(16, brushSize * 2.5) + 'px',
+          fontWeight: 'bold',
+          color: brushColor,
+          textShadow: '1px 1px 3px rgba(0,0,0,0.3)',
+          whiteSpace: 'nowrap',
+        });
+      }
+
+      function selectObj(wrap) {
+        objects.forEach(o => o.classList.remove('selected'));
+        selectedObj = wrap;
+        if (wrap) wrap.classList.add('selected');
+      }
+
+      function removeObj(wrap) {
+        wrap.remove();
+        objects = objects.filter(o => o !== wrap);
+        if (selectedObj === wrap) selectedObj = null;
+      }
+
+      // --- Drag objects ---
+      function objPointerDown(e, wrap, resizeHandle) {
+        // Don't drag if clicking resize handle
+        if (e.target === resizeHandle) return;
+        e.preventDefault();
+        selectObj(wrap);
+        const pt = e.touches ? e.touches[0] : e;
+        const rect = wrap.getBoundingClientRect();
+        dragState = {
+          obj: wrap, type: 'move',
+          offsetX: pt.clientX - rect.left,
+          offsetY: pt.clientY - rect.top,
+        };
+        tool = 'select'; updateToolButtons();
+      }
+
+      function startResize(e, wrap) {
+        selectObj(wrap);
+        const pt = e.touches ? e.touches[0] : e;
+        const inner = wrap.children[0];
+        let startSize;
+        if (wrap.dataset.type === 'gif') {
+          startSize = inner.offsetWidth;
+        } else if (wrap.dataset.type === 'sticker') {
+          startSize = parseFloat(inner.style.fontSize);
+        } else {
+          startSize = parseFloat(inner.style.fontSize);
+        }
+        dragState = {
+          obj: wrap, type: 'resize',
+          startX: pt.clientX, startY: pt.clientY,
+          startSize,
+        };
+      }
+
+      function onPointerMove(e) {
+        if (!dragState) return;
+        e.preventDefault();
+        const pt = e.touches ? e.touches[0] : e;
+        const wrapRect = canvasWrap.getBoundingClientRect();
+
+        if (dragState.type === 'move') {
+          const x = pt.clientX - wrapRect.left - dragState.offsetX;
+          const y = pt.clientY - wrapRect.top - dragState.offsetY;
+          dragState.obj.style.left = x + 'px';
+          dragState.obj.style.top = y + 'px';
+        } else if (dragState.type === 'resize') {
+          const dx = pt.clientX - dragState.startX;
+          const dy = pt.clientY - dragState.startY;
+          const delta = (dx + dy) / 2;
+          const inner = dragState.obj.children[0];
+          if (dragState.obj.dataset.type === 'gif') {
+            inner.style.width = Math.max(30, dragState.startSize + delta) + 'px';
+          } else {
+            inner.style.fontSize = Math.max(12, dragState.startSize + delta * 0.5) + 'px';
+          }
+        }
+      }
+
+      function onPointerUp() {
+        dragState = null;
+      }
+
+      // Global move/up listeners
+      document.addEventListener('mousemove', onPointerMove);
+      document.addEventListener('mouseup', onPointerUp);
+      document.addEventListener('touchmove', onPointerMove, { passive: false });
+      document.addEventListener('touchend', onPointerUp);
+
+      // === CANVAS DRAWING ===
+      function saveUndo() {
+        if (!ctx) return;
+        if (undoStack.length > 30) undoStack.shift();
+        undoStack.push(ctx.getImageData(0, 0, CANVAS_W, CANVAS_H));
+      }
+
+      function getCanvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = CANVAS_W / rect.width;
+        const scaleY = CANVAS_H / rect.height;
+        const pt = e.touches ? e.touches[0] : e;
+        return { x: (pt.clientX - rect.left) * scaleX, y: (pt.clientY - rect.top) * scaleY };
+      }
+
+      function fillBackground(css) {
+        const colors = css.match(/#[a-f0-9]{6}/gi) || ['#ffffff'];
+        if (colors.length >= 2) {
+          const grad = ctx.createLinearGradient(0, 0, CANVAS_W, CANVAS_H);
+          grad.addColorStop(0, colors[0]); grad.addColorStop(1, colors[1]);
+          ctx.fillStyle = grad;
+        } else {
+          ctx.fillStyle = colors[0];
+        }
+        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      }
+
+      function startDraw(e) {
+        if (tool !== 'pen' && tool !== 'eraser') return;
+        // Deselect objects when drawing
+        selectObj(null);
+        drawing = true; saveUndo();
+        const pos = getCanvasPos(e);
+        ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        if (tool === 'eraser') {
+          ctx.globalCompositeOperation = 'destination-out';
+          ctx.lineWidth = brushSize * 3;
+        } else {
+          ctx.globalCompositeOperation = 'source-over';
+          ctx.strokeStyle = brushColor;
+          ctx.lineWidth = brushSize;
+        }
+      }
+      function moveDraw(e) {
+        if (!drawing) return; e.preventDefault();
+        const pos = getCanvasPos(e);
+        ctx.lineTo(pos.x, pos.y); ctx.stroke();
+      }
+      function endDraw() {
+        if (!drawing) return;
+        drawing = false; ctx.globalCompositeOperation = 'source-over';
+      }
+
+      function updateToolButtons() {
+        document.querySelectorAll('#studioToolbar button[id^="tool"]').forEach(b => b.classList.remove('active'));
+        const map = { pen:'toolPen', eraser:'toolEraser', select:'toolPen' };
+        if (map[tool]) document.getElementById(map[tool]).classList.add('active');
+      }
+
+      function closePickers() {
+        document.querySelectorAll('.studio-picker').forEach(p => p.classList.remove('open'));
+      }
+
+      // === OPEN / CLOSE ===
+      function openStudio() {
+        canvas = document.getElementById('studioCanvas');
+        ctx = canvas.getContext('2d');
+        canvasWrap = document.getElementById('studioCanvasWrap');
+
+        const dispW = Math.min(360, window.innerWidth - 32);
+        const dispH = Math.round(dispW * (CANVAS_H / CANVAS_W));
+        canvas.style.width = dispW + 'px'; canvas.style.height = dispH + 'px';
+        displayScale = CANVAS_W / dispW;
+
+        // Also size the object layer
+        document.getElementById('studioObjLayer').style.width = dispW + 'px';
+        document.getElementById('studioObjLayer').style.height = dispH + 'px';
+
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+        undoStack = []; objects = []; selectedObj = null;
+        document.getElementById('studioObjLayer').innerHTML = '';
+        tool = 'pen'; updateToolButtons(); saveUndo();
+
+        document.getElementById('studioOverlay').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+        loadTrendingGifs();
+      }
+
+      function closeStudio() {
+        document.getElementById('studioOverlay').classList.add('hidden');
+        closePickers();
+        document.body.style.overflow = '';
+      }
+
+      // === EXPORT: flatten canvas + objects to image ===
+      async function exportStudio() {
+        // Create export canvas
+        const exp = document.createElement('canvas');
+        exp.width = EXPORT_W; exp.height = EXPORT_H;
+        const ectx = exp.getContext('2d');
+
+        // Draw the drawing canvas (scaled down)
+        ectx.drawImage(canvas, 0, 0, EXPORT_W, EXPORT_H);
+
+        // Draw each floating object
+        const wrapRect = canvasWrap.getBoundingClientRect();
+        const canvasRect = canvas.getBoundingClientRect();
+        const scaleX = EXPORT_W / canvasRect.width;
+        const scaleY = EXPORT_H / canvasRect.height;
+
+        for (const obj of objects) {
+          const objRect = obj.getBoundingClientRect();
+          const x = (objRect.left - canvasRect.left) * scaleX;
+          const y = (objRect.top - canvasRect.top) * scaleY;
+          const inner = obj.children[0];
+
+          if (obj.dataset.type === 'gif') {
+            // Draw GIF frame
+            try {
+              const w = inner.offsetWidth * scaleX;
+              const h = inner.offsetHeight * scaleY;
+              ectx.drawImage(inner, x, y, w, h);
+            } catch { /* CORS */ }
+          } else if (obj.dataset.type === 'sticker') {
+            const fontSize = parseFloat(inner.style.fontSize) * scaleX;
+            ectx.font = `${fontSize}px serif`;
+            ectx.textAlign = 'left'; ectx.textBaseline = 'top';
+            ectx.fillText(inner.textContent, x, y);
+          } else if (obj.dataset.type === 'text') {
+            const fontSize = parseFloat(inner.style.fontSize) * scaleX;
+            ectx.font = `bold ${fontSize}px ${inner.style.fontFamily || 'sans-serif'}`;
+            ectx.fillStyle = inner.style.color || '#000';
+            ectx.textAlign = 'left'; ectx.textBaseline = 'top';
+            // Text shadow
+            ectx.shadowColor = 'rgba(0,0,0,0.3)';
+            ectx.shadowBlur = 3; ectx.shadowOffsetX = 1; ectx.shadowOffsetY = 1;
+            ectx.fillText(inner.textContent, x, y);
+            ectx.shadowColor = 'transparent';
+          }
+        }
+
+        const dataUrl = exp.toDataURL('image/jpeg', 0.85);
+        selectedPhoto = { dataUrl };
+        document.getElementById('photoPreview').src = dataUrl;
+        document.getElementById('photoUpload').classList.add('has-photo');
+        closeStudio();
+      }
+
+      // === ATTACH EVENTS ===
+      setTimeout(() => {
+        const c = document.getElementById('studioCanvas');
+        c.addEventListener('mousedown', startDraw);
+        c.addEventListener('mousemove', moveDraw);
+        c.addEventListener('mouseup', endDraw);
+        c.addEventListener('mouseleave', endDraw);
+        c.addEventListener('touchstart', (e) => { e.preventDefault(); startDraw(e); }, { passive: false });
+        c.addEventListener('touchmove', (e) => { moveDraw(e); }, { passive: false });
+        c.addEventListener('touchend', endDraw);
+
+        // Click canvas to deselect objects
+        c.addEventListener('click', () => { if (tool !== 'pen' && tool !== 'eraser') selectObj(null); });
+
+        document.getElementById('openStudioBtn').addEventListener('click', openStudio);
+        document.getElementById('studioCancel').addEventListener('click', closeStudio);
+        document.getElementById('studioDone').addEventListener('click', exportStudio);
+
+        document.getElementById('toolPen').addEventListener('click', () => { tool = 'pen'; updateToolButtons(); closePickers(); });
+        document.getElementById('toolEraser').addEventListener('click', () => { tool = 'eraser'; updateToolButtons(); closePickers(); });
+        document.getElementById('toolSticker').addEventListener('click', () => {
+          closePickers(); document.getElementById('stickerPicker').classList.toggle('open');
+        });
+        document.getElementById('toolText').addEventListener('click', () => { closePickers(); addTextObj(); });
+        document.getElementById('toolFont').addEventListener('click', () => {
+          closePickers(); document.getElementById('fontPicker').classList.toggle('open');
+        });
+        document.getElementById('toolGif').addEventListener('click', () => {
+          closePickers(); document.getElementById('gifPicker').classList.toggle('open');
+          // Populate tabs if empty
+          const tabs = document.getElementById('gifCatTabs');
+          if (tabs.children.length === 0) {
+            Object.keys(gifCategories).forEach(cat => {
+              const btn = document.createElement('button');
+              btn.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+              btn.dataset.cat = cat;
+              btn.addEventListener('click', () => renderGifCards(cat));
+              tabs.appendChild(btn);
+            });
+          }
+          renderGifCards(activeGifCat);
+        });
+        document.getElementById('toolBg').addEventListener('click', () => {
+          closePickers(); document.getElementById('bgPicker').classList.toggle('open');
+        });
+
+        document.getElementById('studioColor').addEventListener('input', (e) => { brushColor = e.target.value; });
+        document.getElementById('studioBrushSize').addEventListener('input', (e) => { brushSize = parseInt(e.target.value); });
+
+        document.getElementById('toolUndo').addEventListener('click', () => {
+          if (undoStack.length > 0) ctx.putImageData(undoStack.pop(), 0, 0);
+        });
+        document.getElementById('toolClear').addEventListener('click', () => {
+          if (!confirm(t('clearAll'))) return;
+          saveUndo();
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          objects.forEach(o => o.remove()); objects = []; selectedObj = null;
+        });
+
+        // Import photo onto canvas
+        document.getElementById('studioPhotoInput').addEventListener('change', (e) => {
+          const file = e.target.files[0]; if (!file) return;
+          const reader = new FileReader();
+          reader.onload = (ev) => {
+            const img = new Image();
+            img.onload = () => {
+              saveUndo();
+              const ratio = Math.min(CANVAS_W / img.width, CANVAS_H / img.height);
+              const w = img.width * ratio, h = img.height * ratio;
+              const x = (CANVAS_W - w) / 2, y = (CANVAS_H - h) / 2;
+              ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+              ctx.drawImage(img, x, y, w, h);
+            };
+            img.src = ev.target.result;
+          };
+          reader.readAsDataURL(file); e.target.value = '';
+        });
+      }, 100);
+    })();
+  </script>
+</body>
+</html>

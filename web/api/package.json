@@ -1,0 +1,12 @@
+{
+  "name": "love-letter-api",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@azure/communication-email": "^1.1.0",
+    "@azure/data-tables": "^13.2.2",
+    "@azure/storage-blob": "^12.17.0",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3"
+  }
+}
