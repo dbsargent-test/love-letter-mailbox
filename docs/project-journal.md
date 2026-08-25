@@ -69,7 +69,7 @@ Features we added **beyond** the original Love Letter Tech product:
 
 ## Session Log
 
-### Session 1 — 2026-08-24 (Sun)
+### Session 1 — 2026-08-24 (Mon)
 
 **Duration:** ~2.5 hours
 **Participants:** Doug + Larry
