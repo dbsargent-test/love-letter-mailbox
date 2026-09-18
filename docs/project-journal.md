@@ -286,6 +286,10 @@ Features we added **beyond** the original Love Letter Tech product:
 - Physically verified left, center, and right movement. Each movement was brief
   and controlled, followed by silence; no continuous buzzing, jitter, brownout,
   or board reset occurred.
+- Added a white servo arm and widened the diagnostic with explicit 1000 and
+  2000 us commands. The arm traversed clearly in both directions and settled
+  quietly at each position. These are validated nominal limits, not asserted
+  mechanical hard stops.
 - Detached PWM and held IO1 low after testing.
 - Added a reusable policy-compatible ESP32-C5 compile/upload helper and
   regression guards so the working toolchain is documented and repeatable.

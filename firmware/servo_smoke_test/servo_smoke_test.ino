@@ -3,9 +3,11 @@
 constexpr uint8_t SERVO_PIN = 1;
 constexpr uint32_t SERVO_FREQUENCY_HZ = 50;
 constexpr uint8_t SERVO_RESOLUTION_BITS = 16;
+constexpr uint16_t SERVO_WIDE_LEFT_US = 1000;
 constexpr uint16_t SERVO_LEFT_US = 1200;
 constexpr uint16_t SERVO_CENTER_US = 1500;
 constexpr uint16_t SERVO_RIGHT_US = 1800;
+constexpr uint16_t SERVO_WIDE_RIGHT_US = 2000;
 
 bool servoAttached = false;
 
@@ -48,6 +50,8 @@ void printCommands() {
   Serial.println("  1 = left test position (1200 us)");
   Serial.println("  2 = center position (1500 us)");
   Serial.println("  3 = right test position (1800 us)");
+  Serial.println("  4 = wide left test position (1000 us)");
+  Serial.println("  5 = wide right test position (2000 us)");
   Serial.println("  x = detach signal and hold IO1 LOW");
 }
 
@@ -75,6 +79,12 @@ void loop() {
       break;
     case '3':
       writePosition(SERVO_RIGHT_US, "RIGHT");
+      break;
+    case '4':
+      writePosition(SERVO_WIDE_LEFT_US, "WIDE LEFT");
+      break;
+    case '5':
+      writePosition(SERVO_WIDE_RIGHT_US, "WIDE RIGHT");
       break;
     case 'x':
     case 'X':

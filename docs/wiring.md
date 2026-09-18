@@ -92,11 +92,18 @@ row. This wiring was physically validated on 2026-09-18.
 | `1` | Left test position, 1200 us |
 | `2` | Center position, 1500 us |
 | `3` | Right test position, 1800 us |
+| `4` | Wide left test position, 1000 us |
+| `5` | Wide right test position, 2000 us |
 | `x` | Detach PWM and hold IO1 low |
 
 Physical validation passed on 2026-09-18: left, center, and right produced
-controlled movement followed by silence; detach disabled the signal. No
-continuous buzzing, jitter, brownout, or board reset occurred.
+controlled movement followed by silence. A white arm then made the wider
+1000-2000 us traversal clearly visible in both directions without sustained
+buzzing or reaching an observed hard stop. Detach disabled the signal. No
+continuous jitter, brownout, or board reset occurred.
+
+Treat 1000-2000 us as the physically validated nominal operating range, not as
+proof of the servo's absolute mechanical endpoints.
 
 ---
 

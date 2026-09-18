@@ -9,9 +9,11 @@ $firmware = Get-Content -LiteralPath $firmwarePath -Raw
 $requiredPatterns = @(
   'constexpr uint8_t SERVO_PIN = 1;',
   'constexpr uint32_t SERVO_FREQUENCY_HZ = 50;',
+  'constexpr uint16_t SERVO_WIDE_LEFT_US = 1000;',
   'constexpr uint16_t SERVO_LEFT_US = 1200;',
   'constexpr uint16_t SERVO_CENTER_US = 1500;',
   'constexpr uint16_t SERVO_RIGHT_US = 1800;',
+  'constexpr uint16_t SERVO_WIDE_RIGHT_US = 2000;',
   'writePosition(SERVO_CENTER_US, "CENTER");',
   'ledcDetach(SERVO_PIN);',
   'digitalWrite(SERVO_PIN, LOW);'

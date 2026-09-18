@@ -112,9 +112,11 @@ Compile with the policy-compatible helper:
 
 Upload only while the yellow VUSB jumper is disconnected. After serial reports
 stable center PWM, reconnect the yellow jumper and test one command at a time:
-`1` for 1200 us, `2` for 1500 us, `3` for 1800 us, and `x` to detach PWM.
-The bounded left, center, right, and detach sequence passed physical validation
-on 2026-09-18 without continuous jitter, brownout, or reset.
+`1` for 1200 us, `2` for 1500 us, `3` for 1800 us, `4` for 1000 us, `5`
+for 2000 us, and `x` to detach PWM. Commands `4` and `5` are the widest
+physically validated nominal positions; they are not guaranteed mechanical
+endpoints. The complete sequence passed physical validation on 2026-09-18
+without continuous jitter, brownout, or reset.
 
 ## Servo-Free Message Integration
 
