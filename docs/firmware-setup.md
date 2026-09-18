@@ -118,6 +118,12 @@ physically validated nominal positions; they are not guaranteed mechanical
 endpoints. The complete sequence passed physical validation on 2026-09-18
 without continuous jitter, brownout, or reset.
 
+For supervised calibration, send `p####`, where the pulse is from 800 through
+2200 us in 50 us increments. Stop after every command to observe motion and
+listen for sustained buzzing. Stepwise physical testing remained quiet across
+the 800-2200 us envelope. The clearest conservative expanded range was
+850-2150 us; do not infer that 800 and 2200 us are absolute mechanical stops.
+
 ## Servo-Free Message Integration
 
 The next firmware milestone does not require the servo, LiPo, breadboard, or

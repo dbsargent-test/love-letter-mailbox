@@ -290,6 +290,15 @@ Features we added **beyond** the original Love Letter Tech product:
   2000 us commands. The arm traversed clearly in both directions and settled
   quietly at each position. These are validated nominal limits, not asserted
   mechanical hard stops.
+- Added a bounded manual calibration command accepting 800-2200 us in 50 us
+  increments, with no automatic sweep.
+- Tested each expansion step interactively and stopped for physical observation
+  after every command. The servo remained quiet at every tested point.
+- Clear additional travel was observed through 850 us on the left and 2150 us
+  on the right. The difference at 800 us was visually uncertain, while 2200 us
+  still moved farther to the right.
+- Selected 850-2150 us as the conservative expanded operating range.
+  The 800-2200 us tested envelope is not treated as proof of mechanical limits.
 - Detached PWM and held IO1 low after testing.
 - Added a reusable policy-compatible ESP32-C5 compile/upload helper and
   regression guards so the working toolchain is documented and repeatable.

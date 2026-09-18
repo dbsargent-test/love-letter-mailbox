@@ -14,7 +14,11 @@ $requiredPatterns = @(
   'constexpr uint16_t SERVO_CENTER_US = 1500;',
   'constexpr uint16_t SERVO_RIGHT_US = 1800;',
   'constexpr uint16_t SERVO_WIDE_RIGHT_US = 2000;',
+  'constexpr uint16_t SERVO_CALIBRATION_MIN_US = 800;',
+  'constexpr uint16_t SERVO_CALIBRATION_MAX_US = 2200;',
+  'constexpr uint16_t SERVO_CALIBRATION_STEP_US = 50;',
   'writePosition(SERVO_CENTER_US, "CENTER");',
+  'pulseUs % SERVO_CALIBRATION_STEP_US != 0',
   'ledcDetach(SERVO_PIN);',
   'digitalWrite(SERVO_PIN, LOW);'
 )

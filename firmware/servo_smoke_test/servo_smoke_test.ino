@@ -8,6 +8,9 @@ constexpr uint16_t SERVO_LEFT_US = 1200;
 constexpr uint16_t SERVO_CENTER_US = 1500;
 constexpr uint16_t SERVO_RIGHT_US = 1800;
 constexpr uint16_t SERVO_WIDE_RIGHT_US = 2000;
+constexpr uint16_t SERVO_CALIBRATION_MIN_US = 800;
+constexpr uint16_t SERVO_CALIBRATION_MAX_US = 2200;
+constexpr uint16_t SERVO_CALIBRATION_STEP_US = 50;
 
 bool servoAttached = false;
 
@@ -52,11 +55,13 @@ void printCommands() {
   Serial.println("  3 = right test position (1800 us)");
   Serial.println("  4 = wide left test position (1000 us)");
   Serial.println("  5 = wide right test position (2000 us)");
+  Serial.println("  p#### = calibration pulse, 800-2200 us in 50 us steps");
   Serial.println("  x = detach signal and hold IO1 LOW");
 }
 
 void setup() {
   Serial.begin(115200);
+  Serial.setTimeout(250);
   delay(1500);
 
   Serial.println("SG90 servo smoke test on IO1.");
@@ -86,6 +91,19 @@ void loop() {
     case '5':
       writePosition(SERVO_WIDE_RIGHT_US, "WIDE RIGHT");
       break;
+    case 'p':
+    case 'P': {
+      const long pulseUs = Serial.parseInt();
+      if (pulseUs < SERVO_CALIBRATION_MIN_US ||
+          pulseUs > SERVO_CALIBRATION_MAX_US ||
+          pulseUs % SERVO_CALIBRATION_STEP_US != 0) {
+        Serial.println(
+            "ERROR: Calibration pulse must be 800-2200 us in 50 us steps.");
+        break;
+      }
+      writePosition(static_cast<uint16_t>(pulseUs), "CALIBRATION");
+      break;
+    }
     case 'x':
     case 'X':
       detachServo();

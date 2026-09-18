@@ -94,6 +94,7 @@ row. This wiring was physically validated on 2026-09-18.
 | `3` | Right test position, 1800 us |
 | `4` | Wide left test position, 1000 us |
 | `5` | Wide right test position, 2000 us |
+| `p####` | Manual calibration pulse, 800-2200 us in 50 us steps |
 | `x` | Detach PWM and hold IO1 low |
 
 Physical validation passed on 2026-09-18: left, center, and right produced
@@ -104,6 +105,14 @@ continuous jitter, brownout, or board reset occurred.
 
 Treat 1000-2000 us as the physically validated nominal operating range, not as
 proof of the servo's absolute mechanical endpoints.
+
+Further stepwise calibration on 2026-09-18 tested 950/2050, 900/2100,
+850/2150, and 800/2200 us. The servo remained quiet without jitter, brownout,
+or reset. Travel was clearly greater at 850 and 2150 us. Additional leftward
+travel at 800 us was difficult to distinguish, while 2200 us still produced
+visible rightward travel. Use 850-2150 us as the conservative expanded
+operating range; 800-2200 us is the tested envelope, not a confirmed pair of
+mechanical endpoints.
 
 ---
 
