@@ -29,6 +29,43 @@ arduino-cli compile `
 Use the Minimal SPIFFS partition because the integrated firmware requires both
 OTA slots and more application space than the default layout provides.
 
+### Windows Application Control
+
+On this Windows machine, Arduino CLI's bundled PyInstaller executables fail
+before compilation or upload because Application Control blocks their
+temporary Python DLLs. Do not retry `arduino-cli upload` or weaken the policy.
+Use the repository helper, which:
+
+- routes `gen_esp32part.py` through the installed policy-compatible Python;
+- compiles with Arduino CLI and the verified Espressif core;
+- uploads Arduino's generated `flash_args` through `python -m esptool`;
+- retains esptool's per-region hash verification.
+
+Compile:
+
+```powershell
+.\scripts\esp32c5-toolchain.ps1 `
+  -Action Compile `
+  -SketchDirectory .\firmware\mailbox_firmware `
+  -BuildPath "$env:TEMP\mailbox-firmware-build" `
+  -Fqbn "esp32:esp32:sparkfun_esp32c5_thing_plus:PartitionScheme=min_spiffs"
+```
+
+After explicit approval to change the connected device, upload:
+
+```powershell
+.\scripts\esp32c5-toolchain.ps1 `
+  -Action Upload `
+  -SketchDirectory .\firmware\mailbox_firmware `
+  -BuildPath "$env:TEMP\mailbox-firmware-build" `
+  -Port COM4
+```
+
+The helper was independently validated on 2026-09-18 by compiling the servo
+smoke test at 324,384 bytes of program storage (24%) and 18,284 bytes of
+dynamic memory (5%). The servo test was uploaded with installed Python and
+esptool; every flash region passed hash verification.
+
 ### Board and Port
 
 - **Board:** SparkFun ESP32-C5 Thing Plus
@@ -57,6 +94,27 @@ bands with `LOVE LETTER` at the top and `DISPLAY OK` at the bottom. The Serial
 Monitor runs at 115200 baud.
 
 Do not connect the servo or LiPo during this diagnostic.
+
+### Servo Smoke Test
+
+Keep the LiPo disconnected. Connect the SG90 through the mini breadboard:
+orange signal through the purple jumper to IO1, red power through the yellow
+jumper to VU/VUSB, and brown ground through the shared black GND row.
+
+Compile with the policy-compatible helper:
+
+```powershell
+.\scripts\esp32c5-toolchain.ps1 `
+  -Action Compile `
+  -SketchDirectory .\firmware\servo_smoke_test `
+  -BuildPath "$env:TEMP\servo-smoke-test-build"
+```
+
+Upload only while the yellow VUSB jumper is disconnected. After serial reports
+stable center PWM, reconnect the yellow jumper and test one command at a time:
+`1` for 1200 us, `2` for 1500 us, `3` for 1800 us, and `x` to detach PWM.
+The bounded left, center, right, and detach sequence passed physical validation
+on 2026-09-18 without continuous jitter, brownout, or reset.
 
 ## Servo-Free Message Integration
 

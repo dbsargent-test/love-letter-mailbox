@@ -22,7 +22,7 @@ The verified SparkFun ESP32-C5 Thing Plus pins for this project are:
 | TFT DC | IO5 | Display data/command |
 | TFT RST | IO4 | Display reset |
 | TFT LITE | IO3 | Display backlight (PWM for dimming) |
-| Servo Signal | TBD | IO18 is not exposed; select another safe GPIO after display validation |
+| Servo Signal | IO1 | PWM-capable exposed pin; physically validated with the SG90 |
 | Qwiic SDA | IO23 | I2C data through the onboard Qwiic connector |
 | Qwiic SCL | IO24 | I2C clock through the onboard Qwiic connector |
 | USB 5V | VUSB | Servo power |
@@ -61,22 +61,42 @@ Connect the 2.0" ST7789 display to the ESP32-C5:
 
 ## Servo Wiring
 
-> **Deferred:** Servo wiring is blocked until a proper common-ground
-> distribution point is available. The display already occupies the ESP32-C5
-> header GND pin. Do not stack two DuPont connectors on that pin.
+The ESP32-C5 is installed across the center channel of a mini breadboard. Each
+jumper connects through the breadboard row shared with the corresponding ESP32
+header pin; no connectors are stacked directly on a header pin.
 
 Connect the SG90 micro servo:
 
-| Servo Wire | Connect To | Notes |
-|-----------|-----------|-------|
-| Brown (GND) | GND | Common ground with ESP32 |
-| Red (VCC) | VUSB (5V) | Power from USB 5V rail, NOT 3.3V |
-| Orange (Signal) | **TBD** | Do not connect until a safe exposed GPIO is selected |
+| Servo Lead | Jumper Color | ESP32-C5 Connection |
+|------------|--------------|----------------------|
+| Orange (signal) | Purple | IO1 shared breadboard row |
+| Red (power) | Yellow | VU/VUSB shared breadboard row |
+| Brown (ground) | Black | Common GND breadboard row |
+
+The display ground, ESP32 ground, and servo ground share the same breadboard
+row. This wiring was physically validated on 2026-09-18.
 
 **Important:**
 - Power the servo from the **5V USB rail** (VUSB pin), not 3.3V. Servos need 4.8-6V.
-- If the servo jitters at rest, the firmware detaches it after movement to stop the jitter.
+- Use IO1 for the servo signal. IO18 is not exposed on this board.
+- Detach PWM after each completed movement to reduce idle jitter and current.
 - Keep the servo signal wire physically separated from the SPI wires to avoid noise.
+
+### Servo Smoke Test
+
+`firmware/servo_smoke_test/servo_smoke_test.ino` starts at center with bounded
+50 Hz pulses and accepts these serial commands at 115200 baud:
+
+| Command | Result |
+|---------|--------|
+| `1` | Left test position, 1200 us |
+| `2` | Center position, 1500 us |
+| `3` | Right test position, 1800 us |
+| `x` | Detach PWM and hold IO1 low |
+
+Physical validation passed on 2026-09-18: left, center, and right produced
+controlled movement followed by silence; detach disabled the signal. No
+continuous buzzing, jitter, brownout, or board reset occurred.
 
 ---
 
@@ -143,7 +163,7 @@ Plug the JST-PH connector into the battery port on the Thing Plus. That's it.
  │                  │ 3V3     ← VIN            │
  │                  │ GND     ← GND           │
  │                  │                         │
- ├── Servo ────────┤ TBD     ← Signal        │
+ ├── Servo ────────┤ IO1     ← Signal        │
  │   (3 wires)     │ VUSB    ← VCC (5V)      │
  │                  │ GND     ← GND           │
  │                  │                         │
@@ -178,5 +198,5 @@ Plug the JST-PH connector into the battery port on the Thing Plus. That's it.
 4. **Serial Monitor (115200 baud):** Confirm `Display pattern rendered.`
 5. **Expected result:** Four colored bands, `LOVE LETTER`, and `DISPLAY OK`
 
-The I2C, WiFi, servo, and captive-portal tests come after this display-only
-diagnostic passes.
+The display, Qwiic chain, and servo smoke tests have passed. WiFi provisioning
+and integrated mailbox validation remain separate tests.

@@ -266,6 +266,30 @@ Features we added **beyond** the original Love Letter Tech product:
 - The v1.2.5 binary is build-verified but has not yet been installed on the
   physical mailbox or validated through an OTA update.
 
+### 2026-09-18 (Fri) — SG90 Servo Wiring and Physical Validation
+
+- Selected exposed GPIO IO1 for the SG90 signal after confirming that the
+  obsolete IO18 assignment is unavailable on the SparkFun Thing Plus ESP32-C5.
+- Installed the ESP32 across a mini breadboard and used shared rows instead of
+  stacking DuPont connectors on the ESP32 headers.
+- Physically verified orange servo signal through a purple jumper to IO1, red
+  servo power through a yellow jumper to VU/VUSB, and brown servo ground
+  through the shared black ground row.
+- Created a serial-controlled servo smoke test using 50 Hz PWM with bounded
+  1200, 1500, and 1800 us positions and an explicit detach command.
+- Compiled the test at 324,384 bytes of program storage (24%) and 18,284 bytes
+  of dynamic memory (5%).
+- Arduino CLI upload was blocked by Windows Application Control before flash
+  began. Upload through installed Python and esptool succeeded, with every
+  written region passing hash verification.
+- Serial confirmed stable center PWM before servo power was connected.
+- Physically verified left, center, and right movement. Each movement was brief
+  and controlled, followed by silence; no continuous buzzing, jitter, brownout,
+  or board reset occurred.
+- Detached PWM and held IO1 low after testing.
+- Added a reusable policy-compatible ESP32-C5 compile/upload helper and
+  regression guards so the working toolchain is documented and repeatable.
+
 ### 2026-08-24 (Mon) — Evening
 
 **Duration:** ~3 hours (21:00 – 00:00 PT)

@@ -2,6 +2,17 @@
 
 ## Lessons Learned
 
+### 2026-09-17 — Use the policy-compatible ESP32-C5 toolchain helper
+
+Windows Application Control blocks the temporary Python DLL extracted by
+Espressif's bundled PyInstaller tools. Repeated Arduino CLI upload overrides
+still invoked the blocked executable and failed before writing flash.
+
+Use `scripts\esp32c5-toolchain.ps1` for both operations. Compilation routes the
+partition generator through the installed Python runtime; upload consumes the
+generated `flash_args` with `python -m esptool`. Do not weaken Application
+Control or rediscover command-line overrides in later sessions.
+
 ### 2026-09-17 — SPI animations must not clear the full display per frame
 
 The first floating-hearts screensaver cleared and redrew the entire 320×240
