@@ -3,7 +3,7 @@
 ## Overview
 
 The mailbox uses two communication interfaces:
-- **SPI** — for the TFT display (7 wires)
+- **SPI** — for the TFT display (8 wires including power and backlight)
 - **Qwiic (I2C)** — for the light sensor, buzzer, and button (daisy-chained, no soldering)
 
 Plus one **PWM signal wire** for the servo.
@@ -12,24 +12,26 @@ Plus one **PWM signal wire** for the servo.
 
 ## SparkFun Thing Plus ESP32-C5 Pinout Reference
 
-The Thing Plus uses the Adafruit Feather pinout. Key pins for this project:
+The verified SparkFun ESP32-C5 Thing Plus pins for this project are:
 
 | Function | ESP32-C5 Pin | Notes |
 |----------|-------------|-------|
-| SPI MOSI | GPIO 7 | Display data |
-| SPI SCLK | GPIO 6 | Display clock |
-| TFT CS | GPIO 14 | Display chip select |
-| TFT DC | GPIO 21 | Display data/command |
-| TFT RST | GPIO 10 | Display reset |
-| TFT BLK | GPIO 11 | Display backlight (PWM for dimming) |
-| Servo Signal | GPIO 5 | PWM output to SG90 |
-| Qwiic SDA | GPIO 1 | I2C data (Qwiic connector) |
-| Qwiic SCL | GPIO 0 | I2C clock (Qwiic connector) |
+| SPI MOSI | IO8/PICO | Display data |
+| SPI SCLK | IO10/SCK | Display clock |
+| TFT CS | IO6 | Display chip select |
+| TFT DC | IO5 | Display data/command |
+| TFT RST | IO4 | Display reset |
+| TFT LITE | IO3 | Display backlight (PWM for dimming) |
+| Servo Signal | TBD | IO18 is not exposed; select another safe GPIO after display validation |
+| Qwiic SDA | IO23 | I2C data through the onboard Qwiic connector |
+| Qwiic SCL | IO24 | I2C clock through the onboard Qwiic connector |
 | USB 5V | VUSB | Servo power |
 | 3.3V | 3V3 | Display power |
 | GND | GND | Common ground |
 
-> **Note:** Pin assignments may vary. Verify against the [SparkFun Thing Plus ESP32-C5 hookup guide](https://docs.sparkfun.com/SparkFun_Thing_Plus_ESP32-C5/) before wiring. The pins above are starting points — update `User_Setup.h` in TFT_eSPI to match your actual wiring.
+> These assignments match the SparkFun Arduino board definition and the
+> physically completed wiring. IO13, IO14, IO15, and IO18 are not exposed on
+> the board headers.
 
 ---
 
@@ -37,25 +39,31 @@ The Thing Plus uses the Adafruit Feather pinout. Key pins for this project:
 
 Connect the 2.0" ST7789 display to the ESP32-C5:
 
-| Display Pin | ESP32-C5 Pin | Wire Color (suggested) |
+| EYESPI Pin | ESP32-C5 Pin | Installed Wire Color |
 |------------|-------------|----------------------|
 | GND | GND | Black |
-| VCC | 3V3 | Red |
-| SCL (SCLK) | GPIO 6 | Yellow |
-| SDA (MOSI) | GPIO 7 | Blue |
-| RES (RST) | GPIO 10 | White |
-| DC | GPIO 21 | Green |
-| CS | GPIO 14 | Orange |
-| BLK | GPIO 11 | Purple (or 3V3 for always-on) |
+| VIN | 3V3 | Brown |
+| SCK | IO10/SCK | White |
+| MOSI | IO8/PICO | Red |
+| TCS | IO6 | Yellow |
+| DC | IO5 | Green |
+| RST | IO4 | Blue |
+| LITE | IO3 | Orange |
 
 **Important:**
 - VCC must be **3.3V**, not 5V
-- BLK controls the backlight. Connect to a GPIO for software-controlled dimming (using the light sensor), or connect to 3V3 for always-on
-- If your display has different pin labels, refer to the ST7789 datasheet
+- MISO is intentionally unused
+- LITE controls the backlight and is connected to IO3 for software dimming
+- The initial USB-C power test illuminated the backlight but did not validate
+  SPI data or image rendering
 
 ---
 
 ## Servo Wiring
+
+> **Deferred:** Servo wiring is blocked until a proper common-ground
+> distribution point is available. The display already occupies the ESP32-C5
+> header GND pin. Do not stack two DuPont connectors on that pin.
 
 Connect the SG90 micro servo:
 
@@ -63,7 +71,7 @@ Connect the SG90 micro servo:
 |-----------|-----------|-------|
 | Brown (GND) | GND | Common ground with ESP32 |
 | Red (VCC) | VUSB (5V) | Power from USB 5V rail, NOT 3.3V |
-| Orange (Signal) | GPIO 5 | PWM signal |
+| Orange (Signal) | **TBD** | Do not connect until a safe exposed GPIO is selected |
 
 **Important:**
 - Power the servo from the **5V USB rail** (VUSB pin), not 3.3V. Servos need 4.8-6V.
@@ -82,17 +90,17 @@ ESP32-C5 Qwiic Port
     │  [Qwiic Cable 200mm]
     │
     ▼
+Qwiic Button (0x6F)
+    │
+    │  [Qwiic Cable 200mm]
+    │
+    ▼
 VEML6030 Light Sensor (0x48)
     │
     │  [Qwiic Cable 200mm]
     │
     ▼
 Qwiic Buzzer (0x34)
-    │
-    │  [Qwiic Cable 200mm]
-    │
-    ▼
-Qwiic Button (0x6F)
 ```
 
 **That's it.** Just click the cables in. Each board has two Qwiic connectors (IN and OUT). The order doesn't matter electrically, but the above order keeps cable runs logical inside the enclosure.
@@ -126,16 +134,16 @@ Plug the JST-PH connector into the battery port on the Thing Plus. That's it.
                     ┌─────────────────────────┐
                     │   ESP32-C5 Thing Plus    │
                     │                         │
- ┌── TFT Display ──┤ GPIO 6  ← SCL (SPI)     │
- │   (SPI, 7 wires)│ GPIO 7  ← SDA (SPI)     │
- │                  │ GPIO 14 ← CS            │
- │                  │ GPIO 21 ← DC            │
- │                  │ GPIO 10 ← RST           │
- │                  │ GPIO 11 ← BLK           │
- │                  │ 3V3     ← VCC           │
+ ┌── TFT Display ──┤ IO10    ← SCK            │
+ │   (SPI, 8 wires)│ IO8     ← MOSI           │
+ │                  │ IO6     ← TCS            │
+ │                  │ IO5     ← DC             │
+ │                  │ IO4     ← RST            │
+ │                  │ IO3     ← LITE           │
+ │                  │ 3V3     ← VIN            │
  │                  │ GND     ← GND           │
  │                  │                         │
- ├── Servo ────────┤ GPIO 5  ← Signal        │
+ ├── Servo ────────┤ TBD     ← Signal        │
  │   (3 wires)     │ VUSB    ← VCC (5V)      │
  │                  │ GND     ← GND           │
  │                  │                         │
@@ -166,9 +174,9 @@ Plug the JST-PH connector into the battery port on the Thing Plus. That's it.
 
 1. **Before powering on:** Double-check all connections, especially VCC voltages (3.3V for display, 5V for servo)
 2. **Power on via USB-C**
-3. **Serial Monitor (115200 baud):** The firmware logs:
-   - I2C scan results (should find 4 devices)
-   - WiFi connection status
-   - Display initialization
-   - Servo sweep test
-4. **Expected on first boot:** The display shows the WiFi setup captive portal instructions
+3. Flash `firmware/display_smoke_test/display_smoke_test.ino`
+4. **Serial Monitor (115200 baud):** Confirm `Display pattern rendered.`
+5. **Expected result:** Four colored bands, `LOVE LETTER`, and `DISPLAY OK`
+
+The I2C, WiFi, servo, and captive-portal tests come after this display-only
+diagnostic passes.

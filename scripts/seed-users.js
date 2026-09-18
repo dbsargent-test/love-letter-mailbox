@@ -1,18 +1,49 @@
 /**
- * Seed script — creates the two user accounts in Azure Table Storage.
- * Run once: node scripts/seed-users.js <doug-pw> <carolina-pw>
- * 
- * Requires env vars: STORAGE_ACCOUNT_NAME, STORAGE_ACCOUNT_KEY
+ * Seed two paired user accounts in Azure Table Storage.
+ *
+ * Required environment variables:
+ * STORAGE_ACCOUNT_NAME, STORAGE_ACCOUNT_KEY
+ * MAILBOX_USER_A, MAILBOX_USER_A_DISPLAY_NAME, MAILBOX_USER_A_PASSWORD
+ * MAILBOX_USER_B, MAILBOX_USER_B_DISPLAY_NAME, MAILBOX_USER_B_PASSWORD
  */
 const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
 const bcrypt = require("bcryptjs");
-const crypto = require("crypto");
 
-const ACCOUNT_NAME = process.env.STORAGE_ACCOUNT_NAME || "lovelettermlbx";
-const ACCOUNT_KEY = process.env.STORAGE_ACCOUNT_KEY;
+function requiredEnv(name) {
+  const value = process.env[name]?.trim();
+  if (!value) {
+    console.error(`Set ${name} before seeding users.`);
+    process.exit(1);
+  }
+  return value;
+}
 
-if (!ACCOUNT_KEY) {
-  console.error("Set STORAGE_ACCOUNT_KEY env var first");
+const ACCOUNT_NAME = requiredEnv("STORAGE_ACCOUNT_NAME");
+const ACCOUNT_KEY = requiredEnv("STORAGE_ACCOUNT_KEY");
+const userA = {
+  username: requiredEnv("MAILBOX_USER_A"),
+  displayName: requiredEnv("MAILBOX_USER_A_DISPLAY_NAME"),
+  password: requiredEnv("MAILBOX_USER_A_PASSWORD"),
+};
+const userB = {
+  username: requiredEnv("MAILBOX_USER_B"),
+  displayName: requiredEnv("MAILBOX_USER_B_DISPLAY_NAME"),
+  password: requiredEnv("MAILBOX_USER_B_PASSWORD"),
+};
+
+for (const user of [userA, userB]) {
+  if (!/^[a-z0-9_]{3,20}$/.test(user.username)) {
+    console.error("Usernames must match [a-z0-9_]{3,20}.");
+    process.exit(1);
+  }
+  if (user.password.length < 12) {
+    console.error("Seed passwords must be at least 12 characters.");
+    process.exit(1);
+  }
+}
+
+if (userA.username === userB.username) {
+  console.error("The two usernames must be different.");
   process.exit(1);
 }
 
@@ -26,25 +57,24 @@ async function seed() {
     if (!e.message?.includes("TableAlreadyExists")) throw e;
   }
 
-  const dougPw = process.argv[2] || "changeme123";
-  const carolinaPw = process.argv[3] || "changeme456";
-
   const users = [
     {
       partitionKey: "user",
-      rowKey: "doug",
-      displayName: "Doug",
-      partner: "carolina",
-      partnerDisplayName: "Carolina",
-      passwordHash: await bcrypt.hash(dougPw, 10),
+      rowKey: userA.username,
+      displayName: userA.displayName,
+      partner: userB.username,
+      partnerDisplayName: userB.displayName,
+      passwordHash: await bcrypt.hash(userA.password, 12),
+      sessionVersion: 0,
     },
     {
       partitionKey: "user",
-      rowKey: "carolina",
-      displayName: "Carolina",
-      partner: "doug",
-      partnerDisplayName: "Doug",
-      passwordHash: await bcrypt.hash(carolinaPw, 10),
+      rowKey: userB.username,
+      displayName: userB.displayName,
+      partner: userA.username,
+      partnerDisplayName: userA.displayName,
+      passwordHash: await bcrypt.hash(userB.password, 12),
+      sessionVersion: 0,
     },
   ];
 
@@ -57,13 +87,12 @@ async function seed() {
     }
   }
 
-  const dougDeviceKey = crypto.randomBytes(24).toString("base64url");
-  const carolinaDeviceKey = crypto.randomBytes(24).toString("base64url");
-
-  console.log("\n📱 Device API keys (set these as SWA app settings):");
-  console.log(`  DEVICE_KEY_DOUG=${dougDeviceKey}`);
-  console.log(`  DEVICE_KEY_CAROLINA=${carolinaDeviceKey}`);
-  console.log("\nAlso set: JWT_SECRET=" + crypto.randomBytes(32).toString("base64url"));
+  console.log("\nProvision each physical mailbox separately:");
+  console.log(`  node scripts/provision-device-key.js ${userA.username} mailbox-a`);
+  console.log(`  node scripts/provision-device-key.js ${userB.username} mailbox-b`);
 }
 
-seed().catch(console.error);
+seed().catch(error => {
+  console.error("User seeding failed:", error.message);
+  process.exit(1);
+});

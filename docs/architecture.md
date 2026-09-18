@@ -1,5 +1,58 @@
 # Architecture & Design Decisions
 
+## Lessons Learned
+
+### 2026-09-17 — SPI animations must not clear the full display per frame
+
+The first floating-hearts screensaver cleared and redrew the entire 320×240
+ST7789 every 120 ms. Because the display has no frame buffer or vertical-sync
+swap, the cleared frame became visible over SPI and made the screen blink.
+
+Animated elements now move in side lanes around a static central panel. Each
+frame erases only the previous heart bounds and draws the new positions.
+`tests\regression\test-landscape-screensaver-prefetch.ps1` rejects any return
+of `display.fillScreen()` to the animated frame renderer.
+
+### 2026-09-17 — Session revocation must be global and fail closed
+
+Password changes previously revoked only the token used for the request, while
+password resets revoked no active sessions. Revocation-table errors were also
+treated as "not revoked," allowing stolen seven-day JWTs to survive account
+recovery or a storage outage.
+
+Every user now has a monotonic `sessionVersion` included in JWTs and checked
+against Table Storage on every protected request. Password changes and resets
+increment the version, invalidating all older sessions. Revocation lookup
+returns "not revoked" only for an explicit entity-not-found response; other
+storage failures return an authentication-service error rather than accepting
+the token. Device credentials are accepted only through `x-device-key`, never
+through query strings.
+
+### 2026-09-16 — Native image dependencies must match the SWA runtime
+
+The first image-normalization deployment returned HTTP 500 from the messages
+function because Windows SWA CLI packaged only Sharp's Windows ARM64 native
+binary, while Azure Static Web Apps runs Linux x64. The API source and package
+lock were correct, which made the failure invisible to local tests.
+
+Before every Windows-originated SWA deployment, run `npm --prefix web\api run
+prepare:swa` to add Sharp and libvips for Linux x64 to the local deployment
+tree. `tests\regression\test-swa-sharp-runtime.ps1` prevents removal of that
+deployment gate.
+
+### 2026-09-16 — Qwiic queue values are elapsed ages, not timestamps
+
+The Qwiic Button maintains separate press and click queues. Their values are
+milliseconds elapsed since each event, and unmatched press entries can remain
+in the device queue. Pairing the oldest values without resynchronization caused
+a quick tap to be measured as a 270,584 ms hold.
+
+The firmware now discards implausible unmatched entries, computes hold duration
+from paired ages, reconstructs the click time as `millis() - clickAge`, and
+logs the selected action. The double-click window is 750 ms because USB traces
+showed a normal double press at 707 ms. The regression guard is
+`tests\regression\test-button-gesture-timing.ps1`.
+
 ## Overview
 
 The Love Letter Mailbox is a WiFi-connected IoT device that receives text messages and photos from a web interface and displays them on a color TFT screen. A servo-driven flag rises when a new message arrives, a buzzer plays a notification chime, and a button allows the recipient to mark messages as read.
@@ -9,7 +62,8 @@ The Love Letter Mailbox is a WiFi-connected IoT device that receives text messag
 1. **Minimize failure modes** — every architectural choice prioritizes reliability over cleverness
 2. **No persistent connections** — HTTP polling over MQTT/WebSockets to eliminate connection state management
 3. **No native app** — a static web page works on any device without installation or app store approval
-4. **Pre-process on the sender** — resize photos in the browser, not on the ESP32
+4. **Normalize once in the backend** — browser previews are optimized, but the
+   API authoritatively rotates and scales every stored photo
 5. **Vendor-portable** — the ESP32 code is just "fetch JSON from a URL"; swap backends by changing one URL
 
 ---
@@ -99,15 +153,18 @@ Three architectures were evaluated:
 ```
 1. User opens web page on phone/computer
 2. Types message and/or attaches photo
-3. Browser resizes photo to 240×320 (if attached)
+3. Browser creates an aspect-ratio-preserving preview within 216×160
 4. JavaScript POSTs to Azure Function: POST /api/messages
-5. Azure Function writes to Table Storage:
+5. Azure Function rotates the photo from metadata, strips metadata, converts it
+   to baseline JPEG, and fits it inside 216×160 without cropping, stretching,
+   enlarging, or changing portrait/landscape orientation
+6. Azure Function writes to Table Storage:
    - PartitionKey: device ID
    - RowKey: timestamp
    - Text: message content
    - PhotoUrl: Blob Storage URL (if photo)
    - Read: false
-6. Function returns 200 OK
+7. Function returns 200 OK
 ```
 
 ### Receiving a Message
@@ -118,7 +175,8 @@ Three architectures were evaluated:
    a. Raise servo flag
    b. Play buzzer chime
    c. Display message text on TFT
-   d. If photo: download from Blob Storage URL, decode, render on TFT
+   d. If photo: use one of two RAM cache slots or download from Blob Storage,
+      decode, center, and render without changing its aspect ratio
 3. When button pressed:
    a. Mark message as read: PATCH /api/messages/{id}
    b. Lower servo flag
@@ -128,7 +186,7 @@ Three architectures were evaluated:
 ### OTA Firmware Update
 
 ```
-1. On boot + every 24 hours: GET /api/firmware-version
+1. On boot + every 15 minutes: GET /api/device/firmware
 2. Compare server version string to local version
 3. If server > local:
    a. Download .bin from Azure Blob Storage
@@ -136,8 +194,9 @@ Three architectures were evaluated:
    c. Verify checksum
    d. Set boot partition to B
    e. Reboot
-4. If new firmware crashes (watchdog triggers):
-   a. ESP32 auto-boots back to partition A (previous working version)
+4. The new image is confirmed only after display and I2C peripherals initialize
+5. If the pending image reboots before confirmation, the ESP32 bootloader can
+   return to the previous OTA partition
 ```
 
 ---

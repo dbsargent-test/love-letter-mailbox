@@ -14,7 +14,7 @@ This is critical for a device deployed at someone else's house.
 1. You compile new firmware → export as .bin
 2. Upload .bin to Azure Blob Storage
 3. Update version number in Azure Table Storage
-4. ESP32-C5 checks for updates on boot + every 24 hours
+4. ESP32-C5 checks for updates on boot + every 15 minutes
 5. If new version available → downloads .bin → installs → reboots
 6. If new firmware crashes → auto-rollback to previous version
 ```
@@ -42,12 +42,12 @@ The ESP32-C5 has 8MB flash, partitioned as:
 ```
 Current firmware running from ota_0
     │
-    ├── GET /api/firmware-version
-    │   Response: { "version": "1.2.0", "url": "https://...blob.../firmware-1.2.0.bin" }
+    ├── GET /api/device/firmware
+    │   Response: { "version": "1.2.5", "url": "https://...blob.../firmware-1.2.5.bin" }
     │
-    ├── Compare: local "1.1.0" < server "1.2.0" → update needed
+    ├── Compare: local "1.2.4" < server "1.2.5" → update needed
     │
-    ├── Download firmware-1.2.0.bin to ota_1 partition
+    ├── Download firmware-1.2.5.bin to ota_1 partition
     │
     ├── Verify checksum (SHA-256)
     │
@@ -56,11 +56,11 @@ Current firmware running from ota_0
     └── Reboot
         │
         ├── New firmware boots from ota_1
-        │   ├── Runs self-test (WiFi connect, display init, I2C scan)
-        │   ├── If self-test passes → mark ota_1 as confirmed
-        │   └── If self-test fails or watchdog triggers → reboot to ota_0 (rollback)
+        │   ├── Initializes the display and required I2C peripherals
+        │   ├── If initialization passes → mark ota_1 as confirmed
+        │   └── If it reboots before confirmation → bootloader can roll back
         │
-        └── Device now running v1.2.0
+        └── Device now running v1.2.5
 ```
 
 ---
@@ -81,7 +81,7 @@ In Arduino IDE:
 az storage blob upload \
   --account-name <your-storage-account> \
   --container-name firmware \
-  --name firmware-1.2.0.bin \
+  --name firmware-1.2.5.bin \
   --file ./build/mailbox.ino.bin \
   --overwrite
 ```
@@ -94,8 +94,8 @@ Update the firmware version in Azure Table Storage (or a simple JSON file in Blo
 
 ```json
 {
-  "version": "1.2.0",
-  "url": "https://<account>.blob.core.windows.net/firmware/firmware-1.2.0.bin",
+  "version": "1.2.5",
+  "url": "https://<account>.blob.core.windows.net/firmware/firmware-1.2.5.bin",
   "sha256": "abc123...",
   "releaseNotes": "Added emoji support"
 }
@@ -105,23 +105,20 @@ Update the firmware version in Azure Table Storage (or a simple JSON file in Blo
 
 The ESP32 checks for updates:
 - On every boot
-- Every 24 hours while running
+- Every 15 minutes while running
 
-Within 24 hours, the device will self-update. Or reboot the device to trigger an immediate check.
+Within 15 minutes, the device will check for an update. Reboot the device to
+trigger an earlier check after Wi-Fi reconnects.
 
 ---
 
 ## Safety Features
 
 ### Automatic Rollback
-If the new firmware:
-- Crashes during boot
-- Fails to connect to WiFi within 30 seconds
-- Fails to initialize the display
-- Fails to find I2C devices
-- Triggers the hardware watchdog (60-second timeout)
-
-...the ESP32 automatically reboots to the **previous working firmware**. The bad firmware is abandoned and the device recovers without intervention.
+The firmware confirms a pending OTA image only after the display and required
+I2C peripherals initialize. If the image reboots before confirmation, the
+ESP32 bootloader can return to the previous OTA partition. Wi-Fi connectivity
+is retried independently and is not currently part of the confirmation gate.
 
 ### Checksum Verification
 Before installing, the firmware verifies the SHA-256 hash of the downloaded binary against the expected hash from the version metadata. If they don't match (corrupted download), the update is aborted.

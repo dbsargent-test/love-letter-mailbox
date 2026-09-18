@@ -15,6 +15,82 @@
 | Table Storage | Table | `messages` | (in lovelettermlbx) |
 | Blob Container | Container | `photos` | (in lovelettermlbx) |
 | Blob Container | Container | `firmware` | (in lovelettermlbx) |
+
+### Seed Paired Users
+
+The seed script has no default identities or passwords. Configure both paired
+accounts explicitly:
+
+```powershell
+$env:STORAGE_ACCOUNT_NAME = "<storage-account-name>"
+$env:STORAGE_ACCOUNT_KEY = "<storage-account-key>"
+$env:MAILBOX_USER_A = "sender"
+$env:MAILBOX_USER_A_DISPLAY_NAME = "Sender"
+$env:MAILBOX_USER_A_PASSWORD = "<strong-password>"
+$env:MAILBOX_USER_B = "recipient"
+$env:MAILBOX_USER_B_DISPLAY_NAME = "Recipient"
+$env:MAILBOX_USER_B_PASSWORD = "<strong-password>"
+node scripts\seed-users.js
+```
+
+Set `ADMIN_USERNAME` in the Static Web App configuration if moderation
+violations should also create an alert message in an administrator mailbox.
+
+### Provision a Physical Mailbox
+
+Device keys are not stored as application settings. Provision each physical
+mailbox with a unique key whose SHA-256 hash is stored in the `devicekeys`
+table:
+
+```powershell
+$env:STORAGE_ACCOUNT_NAME = "<storage-account-name>"
+$env:STORAGE_ACCOUNT_KEY = "<storage-account-key>"
+node scripts/provision-device-key.js recipient mailbox-recipient "<iana-time-zone>"
+```
+
+Copy the one-time plaintext key directly into the device's ignored
+`firmware/mailbox_firmware/secrets.h` file. Never commit or reuse it.
+
+### Normalize Existing Message Photos
+
+New uploads are normalized by the API to an aspect-ratio-preserving baseline
+JPEG within 216×160. Existing blobs can be assessed with the migration utility:
+
+```powershell
+$env:STORAGE_ACCOUNT_NAME = "<storage-account-name>"
+$env:STORAGE_ACCOUNT_KEY = "<storage-account-key>"
+node web\api\scripts\migrate-message-photos.js
+```
+
+Dry run is the default and makes no Azure changes. Review its ignored local
+manifest under `local/migrations/` before applying:
+
+```powershell
+node web\api\scripts\migrate-message-photos.js --apply
+```
+
+Apply mode uploads an immutable `-device-v1.jpg` derivative and only then
+updates the message entity. It preserves the original blob and records
+`photoOriginalUrl` for rollback; it never overwrites or deletes the source.
+
+### Manual Production Deployment
+
+Run SWA CLI from the repository root, not from inside `web`. Running inside
+the deployment source causes the client's temporary artifact folder to overlap
+the source tree and the upload fails. On Windows, first add the Azure Linux x64
+Sharp runtime to the local dependency tree:
+
+```powershell
+npm --prefix web\api run prepare:swa
+
+swa deploy web `
+  --api-location web\api `
+  --swa-config-location web `
+  --api-language node `
+  --api-version 22 `
+  --deployment-token $env:SWA_CLI_DEPLOYMENT_TOKEN `
+  --env production
+```
 | Static Web App | `Microsoft.Web/staticSites` | `love-letter-app` | West US 2 |
 
 **Static Web App URL:** https://zealous-dune-001e8941e.7.azurestaticapps.net
@@ -32,7 +108,7 @@ az login --use-device-code
 ### 2. Set Subscription
 
 ```powershell
-az account set --subscription "3732cd21-44c8-41e4-811d-1f0d52671bce"
+az account set --subscription "<subscription-id>"
 ```
 
 ### 3. Create Resource Group

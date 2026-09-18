@@ -55,7 +55,10 @@
     }
     .photo-upload .upload-text { color: #888; font-size: 14px; }
     .photo-upload .upload-text .icon { font-size: 28px; display: block; margin-bottom: 8px; }
-    .photo-preview { display: none; width: 100%; border-radius: 8px; }
+    .photo-preview {
+      display: none; width: auto; height: auto; max-width: 216px; max-height: 160px;
+      object-fit: contain; margin: 0 auto; border-radius: 8px;
+    }
     .photo-upload.has-photo .upload-text { display: none; }
     .photo-upload.has-photo .photo-preview { display: block; }
 
@@ -240,7 +243,10 @@
     .msg-item .msg-sender { font-weight: 600; color: #667eea; font-size: 12px; }
     .msg-item .msg-text { margin-top: 4px; color: #333; }
     .msg-item .msg-time { font-size: 11px; color: #aaa; margin-top: 4px; }
-    .msg-item .msg-photo { width: 100%; border-radius: 6px; margin-top: 8px; }
+    .msg-item .msg-photo {
+      display: block; width: auto; height: auto; max-width: min(100%, 216px);
+      max-height: 160px; object-fit: contain; margin: 8px auto 0; border-radius: 6px;
+    }
     .msg-item .msg-status { font-size: 11px; margin-top: 4px; }
     .msg-item .msg-status.unread { color: #ff6b6b; }
     .msg-item .msg-status.read { color: #2ed573; }
@@ -1158,7 +1164,7 @@
     photoInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      const resized = await resizeImage(file, 240, 320);
+      const resized = await resizeImage(file, 216, 160);
       selectedPhoto = resized;
       photoPreview.src = resized.dataUrl;
       photoUpload.classList.add('has-photo');
@@ -1177,7 +1183,7 @@
         reader.onload = (e) => {
           const img = new Image();
           img.onload = () => {
-            const ratio = Math.min(maxW / img.width, maxH / img.height);
+            const ratio = Math.min(1, maxW / img.width, maxH / img.height);
             const w = Math.round(img.width * ratio);
             const h = Math.round(img.height * ratio);
             const c = document.createElement('canvas');

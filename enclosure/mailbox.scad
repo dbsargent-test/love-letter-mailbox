@@ -1,624 +1,721 @@
-// =============================================================
-// Love Letter Mailbox — 3D Printable Enclosure  (v2 — caliper-verified)
-// Designed for Bambu P1S with AMS (multi-color)
-// =============================================================
-// ALL SNAP-FIT — no screws required.
-// Dimensions caliper-measured 2026-08-31 by Doug.
-// All Qwiic peripherals mount as PCBs, not bare components.
-// =============================================================
+// Love Letter Mailbox v2 - three-part, bottom-serviceable enclosure.
 
-// --- RENDERING CONTROL ---
-//   "assembled" = full preview (not printable)
-//   "body"      = main mailbox shell (print upside-down)
-//   "door"      = front hinged door
-//   "door_frame"= black trim overlay (AMS or separate)
-//   "flag"      = flag arm + flag plate
-//   "tray"      = internal component tray (slides in from front)
-//   "sensor_bracket" = light sensor PCB bracket (top-mount)
 render_part = "assembled";
+$fn = 48;
+eps = 0.05;
 
-// --- MAILBOX OVERALL DIMENSIONS ---
-// Increased depth to fit 850mAh battery + three 25mm Qwiic boards
-mailbox_length  = 110;   // front to back (depth)
-mailbox_width   = 80;    // side to side (wider for battery + ESP side-by-side)
-mailbox_height  = 58;    // straight wall height (below the curve)
-wall_thickness  = 2.0;
-corner_radius   = 3;
+// Envelope
+mailbox_length = 110;
+mailbox_width = 80;
+straight_wall_h = 58;
+roof_radius = 40;
+wall = 2.4;
 
-roof_radius = mailbox_width / 2;
+// Measured electronics
+esp_length = 60;
+esp_width = 23.5;
+esp_height = 15.5;
+usb_width = 9;
+usb_height = 3.2;
 
-// --- COMPONENT DIMENSIONS (caliper-measured 2026-08-31) ---
+tft_pcb_width = 59.2;
+tft_pcb_height = 35.5;
+tft_depth = 6;
+tft_screen_width = 48;
+tft_screen_height = 34.5;
 
-// SparkFun Thing Plus ESP32-C5 (WRL-30678)
-esp_length   = 60;     // with USB-C connector
-esp_width    = 23.5;
-esp_height   = 15.5;   // board + soldered headers + tallest IC
-usb_c_width  = 9;
-usb_c_height = 3.2;
-usb_c_offset_z = 1.5;  // center of USB-C from bottom of PCB
-
-// Adafruit 2.0" TFT Display #4311 (via EYESPI FPC)
-tft_pcb_width       = 59.2;
-tft_pcb_height      = 35.5;
-tft_pcb_depth       = 6;      // LCD + back-side components
-tft_screen_width    = 48;     // full glass area (active pixels ~44mm)
-tft_screen_height   = 34.5;   // viewable height
-
-// Adafruit EYESPI Breakout #5613
 eyespi_length = 25.4;
-eyespi_width  = 17.7;
-eyespi_height = 12;    // with soldered headers
+eyespi_width = 17.7;
+eyespi_height = 12;
 
-// SG90 Micro Servo (caliper-measured)
-servo_length = 22.5;
-servo_width  = 12;
-servo_height = 28;     // body only (no shaft)
-servo_total_height = 30.8;  // body + shaft
-servo_shaft_height = servo_total_height - servo_height;  // ~2.8mm above body
-servo_tab_width = 32.3;
-servo_tab_thickness = 2.5;
-servo_tab_height_from_bottom = 16;
+servo_body_y = 22.5;
+servo_body_x = 12;
+servo_body_z = 28;
+servo_total_z = 30.8;
+servo_tab_span = 32.3;
+servo_pivot_above_bottom = 16;
 
-// SparkFun Qwiic Button (BOB-15932) — PCB with 12mm tactile button + red LED
-qbtn_pcb_l     = 25;     // PCB length
-qbtn_pcb_w     = 26;     // PCB width
-qbtn_pcb_t     = 1.6;    // PCB thickness
-qbtn_total_h   = 9.5;    // bottom of PCB to top of button cap
-qbtn_cap_d     = 7;      // button cap diameter
-qbtn_shaft_d   = 8.1;    // button shaft/housing diameter
-qwiic_plug_w   = 6;      // Qwiic connector full width (all boards)
-qwiic_plug_h   = 4.3;    // Qwiic connector height (pin side)
+qbtn_pcb_x = 26;
+qbtn_pcb_z = 25;
+qbtn_shaft_d = 8.1;
+qbtn_total_depth = 9.5;
 
-// SparkFun Ambient Light Sensor VEML6030 (SEN-15436) — Qwiic I2C board
-lsens_pcb_l  = 25.4;
-lsens_pcb_w  = 25.4;   // SQUARE (web said 12.7mm — wrong)
-lsens_pcb_t  = 1.6;
-lsens_total_h = 4.7;   // PCB + components, sensor nearly flush
+sensor_pcb_x = 25.4;
+sensor_pcb_y = 25.4;
+sensor_total_z = 4.7;
 
-// SparkFun Qwiic Buzzer (BOB-24474)
-buzz_pcb_l   = 25.9;
-buzz_pcb_w   = 25.9;
-buzz_pcb_t   = 2.4;
-buzz_total_h = 4.2;    // including buzzer dome
-// Qwiic connectors on BOTH short edges — need clearance
+buzzer_x = 25.9;
+buzzer_y = 25.9;
+buzzer_z = 4.2;
 
-// LiPo Battery 850mAh (PRT-13854)
-battery_length = 43;
-battery_width  = 33.5;
-battery_height = 5.8;
+battery_x = 35.5;
+battery_y = 45;
+battery_z = 5.8;
 
-// FPC cable clearance (18-pin EYESPI ribbon)
-fpc_cable_width = 10;
+// Fits
+rigid_clearance = 0.4;
+tft_pocket_x = 60.0;
+tft_pocket_z = 36.3;
+tft_pocket_depth = 6.8;
+sensor_pocket_x = 26.2;
+sensor_pocket_y = 26.2;
+sensor_pocket_z = 5.2;
 
-// --- DOOR PARAMETERS ---
-door_width  = tft_screen_width + 18;   // wider for TFT margin (+4mm vs before)
-door_height = tft_screen_height + 38;  // +10mm for button PCB below display
-door_recess = 1;
-hinge_pin_d = 2.5;
+// Floor and snap system
+floor_t = 2.8;
+floor_edge_gap = 0.15;
+tongue_clearance = 0.3;
+tongue_t = 1.8;
+tongue_h = 4.2;
+snap_h = 7.4;
+snap_w = 8;
+snap_y_positions = [38, 70];
 
-// --- FLAG PARAMETERS ---
-flag_arm_length = 30;
-flag_arm_width  = 5;
-flag_arm_thickness = 3;
-flag_width  = 20;
-flag_height = 12;
-flag_thickness = 2;
+// Layout datums
+tft_center_z = 37.1;
+button_center_z = 11.5;
+servo_pivot_y = 68;
+servo_pivot_z = 54;
+sensor_center_y = mailbox_length / 2;
 
-// --- SNAP-FIT PARAMETERS ---
-snap_lip      = 0.8;
-snap_flex_len = 4;
-snap_gap      = 0.3;
-fit_tolerance = 0.3;
+floor_esp_x = 51.5;
+floor_esp_y = 44.5;
+floor_battery_x = 5;
+floor_battery_y = 18;
+floor_eyespi_x = 55.2;
+floor_eyespi_y = 16.5;
+floor_buzzer_x = 7;
+floor_buzzer_y = 76;
 
-// --- COLORS ---
-color_body       = [1, 1, 1];
-color_door_frame = [0.1, 0.1, 0.1];
-color_door_panel = [1, 1, 1];
-color_flag       = [0.2, 0.7, 0.3];
-color_internal   = [0.5, 0.5, 0.5];
-color_sensor     = [0.6, 0.8, 0.6];   // light green accent for sensor bracket
+// Flag and typical SG90 stock horn assumptions
+flag_t = 4.5;
+flag_arm_length = 34;
+flag_arm_w = 7;
+flag_plate_x = 16;
+flag_plate_y = 20;
+horn_recess_depth = 2.0;
+horn_boss_d = 7.8;
+horn_arm_w = 3.5;
+horn_long_r = 16;
+horn_short_r = 7;
+horn_cross_r = 7;
+horn_screw_d = 2.2;
+flag_wall_gap = 0.3;
 
-// =============================================================
-// SNAP-FIT PRIMITIVES
-// =============================================================
+color_housing = [0.95, 0.95, 0.95];
+color_floor = [0.38, 0.40, 0.43];
+color_flag = [0.18, 0.68, 0.27];
 
-module snap_clip(length, height, lip) {
-    cube([1.2, length, height]);
-    translate([0, 0, height - lip])
-        cube([1.2 + lip, length, lip]);
+assert(wall >= 2.4, "Housing wall must remain structural.");
+assert(tft_pocket_x >= tft_pcb_width + 0.8, "TFT pocket is undersized.");
+assert(sensor_pocket_x >= sensor_pcb_x + 0.8, "Sensor pocket is undersized.");
+assert(servo_pivot_z - servo_pivot_above_bottom >= 36,
+       "Servo mount is not elevated.");
+
+module rounded_rect_2d(x, y, r) {
+    hull()
+        for (px = [r, x - r])
+            for (py = [r, y - r])
+                translate([px, py]) circle(r = r);
 }
 
-// Rectangular PCB cradle — 4 corner posts with snap lips
-module pcb_cradle(l, w, h, post_h) {
-    gap = fit_tolerance;
-    cl = l + 2*gap;
-    cw = w + 2*gap;
-    post = 1.5;
-    // 4 corner posts
-    for (px = [0, cl - post]) {
-        for (py = [0, cw - post]) {
-            translate([px, py, 0]) {
-                cube([post, post, post_h]);
-                // Inward snap lip at top
-                lip_x = (px == 0) ? post - snap_lip : 0;
-                lip_y = (py == 0) ? post - snap_lip : 0;
-                translate([lip_x, lip_y, post_h - snap_lip])
-                    cube([snap_lip, snap_lip, snap_lip]);
-            }
+// Analytic profile: full-width vertical walls topped by an upper semicircle.
+module mailbox_profile_2d() {
+    union() {
+        square([mailbox_width, straight_wall_h + eps]);
+        intersection() {
+            translate([mailbox_width / 2, straight_wall_h])
+                circle(r = roof_radius);
+            translate([0, straight_wall_h])
+                square([mailbox_width, roof_radius + eps]);
         }
     }
 }
 
-// =============================================================
-// MODULES
-// =============================================================
-
-// --- Rounded mailbox profile (2D cross-section) ---
-module mailbox_profile(w, h) {
-    hull() {
-        translate([corner_radius, 0])
-            square([w - 2*corner_radius, h]);
-        translate([w/2, h])
-            circle(r=w/2, $fn=80);
+module mailbox_inner_profile_2d() {
+    inner_r = roof_radius - wall;
+    union() {
+        translate([wall, -1])
+            square([mailbox_width - 2 * wall, straight_wall_h + 1 + eps]);
+        intersection() {
+            translate([mailbox_width / 2, straight_wall_h])
+                circle(r = inner_r);
+            translate([wall, straight_wall_h])
+                square([mailbox_width - 2 * wall, inner_r + eps]);
+        }
     }
 }
 
-// --- Main mailbox body (hollow shell) ---
-module mailbox_body() {
-    inner_w = mailbox_width - 2*wall_thickness;
-    inner_l = mailbox_length - 2*wall_thickness;
+module cassette_limit_profile_2d() {
+    limit_r = roof_radius - wall + 0.2;
+    union() {
+        translate([wall, -1])
+            square([mailbox_width - 2 * wall, straight_wall_h + 1 + eps]);
+        intersection() {
+            translate([mailbox_width / 2, straight_wall_h])
+                circle(r = limit_r);
+            translate([wall, straight_wall_h])
+                square([mailbox_width - 2 * wall, limit_r + eps]);
+        }
+    }
+}
 
-    difference() {
-        // Outer shell
+module profile_prism(length, inner = false) {
+    translate([0, length, 0])
         rotate([90, 0, 0])
-        translate([0, 0, -mailbox_length])
-        linear_extrude(height=mailbox_length)
-            mailbox_profile(mailbox_width, mailbox_height);
-
-        // Inner cavity
-        rotate([90, 0, 0])
-        translate([0, 0, -mailbox_length + wall_thickness])
-        linear_extrude(height=mailbox_length - 2*wall_thickness)
-            offset(r=-wall_thickness)
-            mailbox_profile(mailbox_width, mailbox_height);
-
-        // --- CUTOUTS ---
-
-        // Front opening (door cutout) — centered horizontally, starts above tray
-        translate([(mailbox_width - door_width)/2, -0.1, wall_thickness + 5])
-            cube([door_width, wall_thickness + 0.2, door_height]);
-
-        // USB-C cutout (back wall) — aligned with ESP32 on RIGHT side of tray
-        // ESP32 center X (global) = tray_ox + (tray_w - esp_width - 5) + esp_width/2
-        translate([
-            (wall_thickness + fit_tolerance) + (mailbox_width - 2*wall_thickness - 2*fit_tolerance - esp_width - 5) + esp_width/2 - usb_c_width/2,
-            mailbox_length - wall_thickness - 0.1,
-            wall_thickness + 1.5 + usb_c_offset_z  // tray_height + USB offset
-        ])
-            cube([usb_c_width + 1, wall_thickness + 0.2, usb_c_height + 1]);
-
-        // Servo shaft slot (right side wall)
-        servo_y = mailbox_length * 0.35;
-        translate([
-            mailbox_width - wall_thickness - 0.1,
-            servo_y + servo_length/2 - 5,
-            wall_thickness + servo_tab_height_from_bottom - 2
-        ])
-            cube([wall_thickness + 0.2, 10, servo_shaft_height + 8]);
-
-        // (Button is on the DOOR, not the body front wall)
-
-        // Light sensor window (top of mailbox)
-        // Rectangular slot for the VEML6030 sensor area (~10×10mm window)
-        translate([
-            mailbox_width * 0.65 - 6,
-            mailbox_length * 0.25 - 6,
-            mailbox_height + roof_radius - wall_thickness - 0.1
-        ])
-            cube([12, 12, wall_thickness + 1]);
-
-        // Buzzer sound vents (bottom, 4×3 grid — aligned with buzzer on tray)
-        // Buzzer tray position: x=5, y=bat_y+battery_length+2+eyespi_length+2 = 3+43+2+25.4+2 = 75.4
-        // Global: x_center ≈ 2.3+5+13 = 20.3, y_center ≈ 2.3+75.4+13 = 90.7
-        for (ix = [-2:2]) {
-            for (iy = [-1:1]) {
-                translate([
-                    20 + ix*5,
-                    91 + iy*5,
-                    -0.1
-                ])
-                    cylinder(h=wall_thickness + 0.2, d=2.5, $fn=20);
-            }
-        }
-
-        // Tray slide-in rails (grooves on inner left and right walls)
-        tray_rail_z = wall_thickness;
-        tray_rail_h = 1.5;
-        for (side = [wall_thickness, mailbox_width - wall_thickness - 2]) {
-            translate([side, wall_thickness, tray_rail_z])
-                cube([2 + fit_tolerance, inner_l, tray_rail_h + fit_tolerance]);
-        }
-
-        // (Qwiic cables route internally — no wall pass-throughs needed)
-    }
-
-    // --- INTERNAL MOUNTS ---
-
-    // Door hinge pins (left side of door opening)
-    for (z_off = [wall_thickness + 6, wall_thickness + 4 + door_height]) {
-        translate([(mailbox_width - door_width)/2 - 0.5, wall_thickness*0.5, z_off])
-            difference() {
-                cylinder(h=5, d=hinge_pin_d + 3, $fn=24);
-                translate([0, 0, -0.1])
-                    cylinder(h=5.2, d=hinge_pin_d + 2*snap_gap, $fn=24);
-            }
-    }
-
-    // Servo cradle (inside right wall)
-    servo_y = mailbox_length * 0.35;
-    servo_z = wall_thickness + 5;
-    servo_inner_x = mailbox_width - wall_thickness - servo_width - 1;
-
-    // Bottom shelf
-    translate([servo_inner_x, servo_y - 1, servo_z])
-        cube([servo_width + 1, servo_length + 2, 1.5]);
-    // Front tab wall + snap lip
-    translate([servo_inner_x, servo_y - 1, servo_z + 1.5])
-        cube([servo_width + 1, 2, servo_tab_height_from_bottom]);
-    translate([servo_inner_x + 2, servo_y - 1, servo_z + 1.5 + servo_tab_height_from_bottom])
-        cube([servo_width - 3, 2, snap_lip]);
-    // Rear tab wall + snap lip
-    translate([servo_inner_x, servo_y + servo_length - 1, servo_z + 1.5])
-        cube([servo_width + 1, 2, servo_tab_height_from_bottom]);
-    translate([servo_inner_x + 2, servo_y + servo_length - 1, servo_z + 1.5 + servo_tab_height_from_bottom])
-        cube([servo_width - 3, 2, snap_lip]);
-
-    // (Button PCB mounts on the door, not the body)
-
-    // (Light sensor mounts via external sensor_bracket — no internal standoffs needed)
-
-    // FPC cable routing clips (along inner left wall)
-    for (y_pos = [mailbox_length * 0.3, mailbox_length * 0.5, mailbox_length * 0.7]) {
-        translate([wall_thickness + 1, y_pos, wall_thickness + door_height - 3]) {
-            cube([1.2, 4, 5]);
-            translate([fpc_cable_width + 1.2, 0, 0])
-                cube([1.2, 4, 5]);
-            translate([0, 1, 5])
-                cube([fpc_cable_width + 2.4, 2, 1]);
-        }
-    }
+            linear_extrude(height = length, convexity = 10)
+                if (inner) mailbox_inner_profile_2d();
+                else mailbox_profile_2d();
 }
 
-// --- Front door with display window + button ---
-module mailbox_door() {
-    // Button position: centered below display window
-    btn_z = 11.5;  // PCB bottom at 1mm from door edge, top at 23.5mm (below display at 28mm)
-    btn_x = door_width / 2;
+module cassette_limit_prism() {
+    translate([0, mailbox_length, 0])
+        rotate([90, 0, 0])
+            linear_extrude(height = mailbox_length, convexity = 10)
+                cassette_limit_profile_2d();
+}
 
-    difference() {
-        cube([door_width, wall_thickness - door_recess, door_height]);
+module front_aperture_cuts() {
+    window_x = tft_screen_width + 0.2;
+    window_z = tft_screen_height + 0.2;
+    translate([(mailbox_width - window_x) / 2, -eps,
+               tft_center_z - window_z / 2])
+        cube([window_x, wall + 2 * eps, window_z]);
 
-        // Display window cutout (screen area visible)
-        translate([
-            (door_width - tft_screen_width)/2,
-            -0.1,
-            door_height - tft_screen_height - 10
-        ])
-            cube([tft_screen_width, wall_thickness + 0.2, tft_screen_height]);
-
-        // Recess for black frame trim
-        translate([
-            (door_width - tft_screen_width)/2 - 3,
-            -0.1,
-            door_height - tft_screen_height - 13
-        ])
-            cube([tft_screen_width + 6, 0.7, tft_screen_height + 6]);
-
-        // Button hole (below display, button shaft passes through door panel)
-        translate([btn_x, -0.1, btn_z])
+    translate([mailbox_width / 2, -eps, button_center_z])
         rotate([-90, 0, 0])
-            cylinder(h=wall_thickness + 0.2, d=qbtn_shaft_d + fit_tolerance*2, $fn=40);
+            cylinder(h = wall + 2 * eps,
+                     d = qbtn_shaft_d + 0.4);
+}
+
+module servo_and_service_cuts() {
+    translate([mailbox_width - wall - eps, servo_pivot_y, servo_pivot_z])
+        rotate([0, 90, 0])
+            cylinder(h = wall + 2 * eps, d = 8.8);
+
+    // Rear notch remains open to the bottom so the populated floor moves straight up.
+    usb_center_x = floor_esp_x + esp_width / 2;
+    translate([usb_center_x - (usb_width + 2) / 2,
+               mailbox_length - wall - eps, -eps])
+        cube([usb_width + 2, wall + 2 * eps, 12.0]);
+
+    // Low side vents preserve the bottom seam and do not depend on buzzer alignment.
+    for (yy = [78, 88, 98])
+        translate([-eps, yy - 3.5, 14])
+            cube([wall + 2 * eps, 7, 2.4]);
+}
+
+module sensor_roof_cut() {
+    // The opening crosses the full roof skin over the sensor IC.
+    translate([mailbox_width / 2 - 4.5, sensor_center_y - 4.5,
+               straight_wall_h + roof_radius - wall - 0.5])
+        cube([9, 9, wall + 1.2]);
+}
+
+module housing_snap_recesses() {
+    for (yy = snap_y_positions) {
+        translate([wall - 1.15, yy - snap_w / 2 - 0.4, 5.35])
+            cube([1.25, snap_w + 0.8, 2.25]);
+        translate([mailbox_width - wall - 0.1,
+                   yy - snap_w / 2 - 0.4, 5.35])
+            cube([1.25, snap_w + 0.8, 2.25]);
+    }
+}
+
+module tft_cradle() {
+    x0 = (mailbox_width - tft_pocket_x) / 2;
+    x1 = x0 + tft_pocket_x;
+    z0 = tft_center_z - tft_pocket_z / 2;
+    z1 = z0 + tft_pocket_z;
+    y0 = wall - 0.15;
+    y1 = wall + tft_pocket_depth;
+    rail = 1.8;
+    keeper = 1.4;
+
+    // Left guide and rear keeper.
+    translate([x0 - rail, y0, z0 - 0.5])
+        cube([rail, tft_pocket_depth + 1.4, tft_pocket_z + 1.0]);
+    translate([x0 - rail, y1, z0 - 0.5])
+        cube([rail + 3.8, keeper, tft_pocket_z + 1.0]);
+
+    // Right guide is split to give the 10 mm FPC a side exit and bend volume.
+    for (zr = [[z0 - 0.5, 7.3], [z0 + 20.0, z1 - (z0 + 20.0) + 0.5]]) {
+        translate([x1, y0, zr[0]])
+            cube([rail, tft_pocket_depth + 1.4, zr[1]]);
+        translate([x1 - 2.0, y1, zr[0]])
+            cube([rail + 2.0, keeper, zr[1]]);
     }
 
-    // TFT snap-fit frame (inside face of door, holds the 59.2×35.5mm PCB)
-    tft_x = (door_width - tft_pcb_width) / 2;
-    tft_z = door_height - tft_pcb_height - 7;
-    tft_frame_depth = tft_pcb_depth + 1.5;  // 6mm display + clearance
+    // Top stop establishes screen alignment while leaving the bottom open.
+    translate([x0 - rail, y0, z1])
+        cube([tft_pocket_x + 2 * rail, tft_pocket_depth + 1.4, 1.8]);
 
-    // Bottom rail
-    translate([tft_x - 0.5, wall_thickness - door_recess, tft_z - 1])
-        cube([tft_pcb_width + 1, tft_frame_depth, 1]);
-    // Top rail
-    translate([tft_x - 0.5, wall_thickness - door_recess, tft_z + tft_pcb_height])
-        cube([tft_pcb_width + 1, tft_frame_depth, 1]);
-    // Left rail + snap lip
-    translate([tft_x - 1, wall_thickness - door_recess, tft_z])
-        cube([1, tft_frame_depth, tft_pcb_height]);
-    translate([tft_x - 1, wall_thickness - door_recess + tft_frame_depth - snap_lip, tft_z + 5])
-        cube([1 + snap_lip, snap_lip, tft_pcb_height - 10]);
-    // Right rail + snap lip
-    translate([tft_x + tft_pcb_width, wall_thickness - door_recess, tft_z])
-        cube([1, tft_frame_depth, tft_pcb_height]);
-    translate([tft_x + tft_pcb_width - snap_lip, wall_thickness - door_recess + tft_frame_depth - snap_lip, tft_z + 5])
-        cube([1 + snap_lip, snap_lip, tft_pcb_height - 10]);
+    // Two printable vertical fingers retain the lower PCB edge.
+    for (xx = [x0 + 3, x1 - 8]) {
+        translate([xx, y1 + 0.05, 7.5])
+            cube([5, 1.35, z0 - 7.5]);
+        hull() {
+            translate([xx, y1 + 0.05, z0 - 1.7])
+                cube([5, 1.35, 0.2]);
+            translate([xx, y1 - 0.85, z0 - 0.55])
+                cube([5, 2.25, 0.55]);
+        }
+    }
+}
 
-    // Qwiic Button PCB cradle (inside of door, below display)
-    // PCB lays FLAT against inner door face, button cap pokes through hole
-    // PCB: 25×26mm. Oriented with 26mm in X (horizontal), 25mm in Z (vertical)
-    // Button at center of PCB → hole aligns at btn_x, btn_z
-    qbtn_door_x = btn_x - 26/2;   // center 26mm dimension on button hole
-    qbtn_door_z = btn_z - 25/2 + 2; // center 25mm dimension, slight upward bias
-    qbtn_door_y = wall_thickness - door_recess;  // inner face of door
+module button_cradle() {
+    pocket_x = qbtn_pcb_x + 0.8;
+    pocket_z = qbtn_pcb_z + 0.8;
+    x0 = (mailbox_width - pocket_x) / 2;
+    x1 = x0 + pocket_x;
+    z0 = 0.8;
+    z1 = z0 + pocket_z;
+    y0 = wall + tft_pocket_depth + 0.45;
+    y1 = y0 + 3.8;
+    rail = 1.6;
 
-    // Floor ledge (PCB sits on this)
-    translate([qbtn_door_x, qbtn_door_y, qbtn_door_z - 1])
-        cube([26 + fit_tolerance, qbtn_total_h + 1, 1]);
-    // Left wall
-    translate([qbtn_door_x - 1.2, qbtn_door_y, qbtn_door_z])
-        cube([1.2, qbtn_total_h + 1, 25]);
-    // Right wall
-    translate([qbtn_door_x + 26 + fit_tolerance, qbtn_door_y, qbtn_door_z])
-        cube([1.2, qbtn_total_h + 1, 25]);
-    // Top snap lip (holds PCB from sliding up)
-    translate([qbtn_door_x + 3, qbtn_door_y, qbtn_door_z + 25])
-        cube([20, snap_lip, snap_lip]);
+    // Split side rails leave independent left/right Qwiic cable paths.
+    for (zr = [[z0, 5.0], [z0 + 13.0, z1 - (z0 + 13.0)]]) {
+        translate([x0 - rail, y0, zr[0]])
+            cube([rail, y1 - y0, zr[1]]);
+        translate([x1, y0, zr[0]])
+            cube([rail, y1 - y0, zr[1]]);
+    }
 
-    // Hinge barrels (snap onto body's hinge pins)
-    for (z_off = [1, door_height - 6]) {
-        translate([-2, (wall_thickness - door_recess)/2, z_off]) {
-            difference() {
-                cylinder(h=5, d=hinge_pin_d + 3 + 2*snap_gap, $fn=24);
+    // Rear corner keepers provide positive depth retention without blocking cables.
+    for (xx = [x0 - rail, x1 - 3.5])
+        translate([xx, y1 - 1.35, z0])
+            cube([5.1, 1.35, pocket_z]);
+
+    translate([x0 - rail, y0, z1])
+        cube([pocket_x + 2 * rail, y1 - y0, 1.6]);
+
+    for (xx = [x0 + 1.5, x1 - 5.5]) {
+        translate([xx, y1 - 1.3, 0])
+            cube([4, 1.3, z0 + 0.25]);
+        translate([xx, y1 - 1.3, z0])
+            cube([4, 2.1, 0.8]);
+    }
+}
+
+module servo_mount() {
+    body_y0 = servo_pivot_y - 5.8 - rigid_clearance;
+    body_y1 = body_y0 + servo_body_y + 2 * rigid_clearance;
+    body_x0 = mailbox_width - wall - servo_body_x - 2 * rigid_clearance;
+    body_z0 = servo_pivot_z - servo_pivot_above_bottom - rigid_clearance;
+    body_z1 = body_z0 + servo_body_z + 2 * rigid_clearance;
+    rib = 1.8;
+
+    // The cage is open below. The servo travels vertically into these guides.
+    for (yy = [body_y0 - rib, body_y1])
+        translate([body_x0 - 1.8, yy, body_z0 - 0.6])
+            cube([mailbox_width - wall - body_x0 + 1.95,
+                  rib, body_z1 - body_z0 + 1.2]);
+
+    // Inner keepers stop the body moving away from the side wall.
+    for (yy = [body_y0 + 2, body_y1 - 6])
+        translate([body_x0 - 1.8, yy, body_z0])
+            cube([1.8, 4, body_z1 - body_z0]);
+
+    translate([body_x0 - 1.8, body_y0 - rib, body_z1])
+        cube([mailbox_width - wall - body_x0 + 1.95,
+              body_y1 - body_y0 + 2 * rib, 2.0]);
+
+    // Bottom latches are 1.8 mm thick and 8 mm long, not fragile film tabs.
+    for (yy = [body_y0 + 1.0, body_y1 - 5.5]) {
+        translate([body_x0 - 1.8, yy, body_z0 - 8])
+            cube([1.8, 4.5, 8.1]);
+        hull() {
+            translate([body_x0 - 1.8, yy, body_z0 - 1.1])
+                cube([1.8, 4.5, 0.2]);
+            translate([body_x0 - 0.8, yy, body_z0 - 0.1])
+                cube([1.0, 4.5, 0.6]);
+        }
+    }
+
+    // Broad tab datum shelf; the 32.3 mm ears remain cable-accessible.
+    tab_y0 = (body_y0 + body_y1 - servo_tab_span) / 2;
+    translate([body_x0 - 1.8, tab_y0, servo_pivot_z - 1.0])
+        cube([3.0, servo_tab_span, 2.0]);
+}
+
+module sensor_cassette() {
+    inner_roof_z = straight_wall_h + roof_radius - wall;
+    pocket_top_z = straight_wall_h
+        + sqrt(pow(roof_radius - wall, 2)
+               - pow(sensor_pocket_x / 2, 2)) - 0.25;
+    z0 = pocket_top_z - sensor_pocket_z;
+    skirt_z0 = z0 - 1.2;
+    x0 = mailbox_width / 2 - sensor_pocket_x / 2;
+    x1 = x0 + sensor_pocket_x;
+    y0 = sensor_center_y - sensor_pocket_y / 2;
+    y1 = y0 + sensor_pocket_y;
+    rail = 1.7;
+
+    intersection() {
+        union() {
+            translate([x0 - rail, y0 - rail, skirt_z0])
+                cube([rail, sensor_pocket_y + 2 * rail,
+                      inner_roof_z - skirt_z0 + 0.4]);
+            translate([x1, y0 - rail, skirt_z0])
+                cube([rail, sensor_pocket_y + 2 * rail,
+                      inner_roof_z - skirt_z0 + 0.4]);
+        }
+        cassette_limit_prism();
+    }
+
+    // Front and rear rails stop below the curved skin and are split for
+    // either Qwiic connector direction.
+    for (yy = [y0 - rail, y1])
+        for (xx = [[x0 - rail, 9.0],
+                   [mailbox_width / 2 + 5.0,
+                    x1 + rail - (mailbox_width / 2 + 5.0)]])
+            translate([xx[0], yy, skirt_z0])
+                cube([xx[1], rail, pocket_top_z - skirt_z0]);
+
+    // Four small lips prevent lift and tilt; the side skirts flex during insertion.
+    for (yy = [y0 + 2.0, y1 - 7.0]) {
+        translate([x0 - rail, yy, skirt_z0])
+            cube([rail + 1.2, 5.0, 1.2]);
+        translate([x1 - 1.2, yy, skirt_z0])
+            cube([rail + 1.2, 5.0, 1.2]);
+    }
+}
+
+module housing() {
+    union() {
+        difference() {
+            profile_prism(mailbox_length);
+            translate([0, wall, 0])
+                profile_prism(mailbox_length - 2 * wall, true);
+            front_aperture_cuts();
+            servo_and_service_cuts();
+            sensor_roof_cut();
+            housing_snap_recesses();
+        }
+        tft_cradle();
+        button_cradle();
+        servo_mount();
+        sensor_cassette();
+    }
+}
+
+module floor_plate() {
+    difference() {
+        translate([floor_edge_gap, floor_edge_gap, 0])
+            linear_extrude(height = floor_t)
+                rounded_rect_2d(mailbox_width - 2 * floor_edge_gap,
+                                mailbox_length - 2 * floor_edge_gap, 2.2);
+
+        // Opposed scallops expose the seam for deliberate removal.
+        for (xx = [floor_edge_gap, mailbox_width - floor_edge_gap])
+            translate([xx, mailbox_length / 2, -eps])
+                cylinder(h = floor_t + 2 * eps, d = 9);
+    }
+}
+
+module tongue_segments() {
+    x0 = wall + tongue_clearance;
+    x1 = mailbox_width - wall - tongue_clearance;
+    y0 = wall + tongue_clearance;
+    y1 = mailbox_length - wall - tongue_clearance;
+    z0 = floor_t - 0.1;
+
+    // Front, sides, and a split rear tongue locate the floor without slide rails.
+    translate([x0, y0, z0])
+        cube([x1 - x0, tongue_t, tongue_h + 0.1]);
+    side_ranges = [
+        [y0, snap_y_positions[0] - snap_w / 2 - 0.3],
+        [snap_y_positions[0] + snap_w / 2 + 0.3,
+         snap_y_positions[1] - snap_w / 2 - 0.3],
+        [snap_y_positions[1] + snap_w / 2 + 0.3, y1]
+    ];
+    for (rr = side_ranges) {
+        translate([x0, rr[0], z0])
+            cube([tongue_t, rr[1] - rr[0], tongue_h + 0.1]);
+        translate([x1 - tongue_t, rr[0], z0])
+            cube([tongue_t, rr[1] - rr[0], tongue_h + 0.1]);
+    }
+
+    usb_center_x = floor_esp_x + esp_width / 2;
+    translate([x0, y1 - tongue_t, z0])
+        cube([usb_center_x - 7 - x0, tongue_t, tongue_h + 0.1]);
+    translate([usb_center_x + 7, y1 - tongue_t, z0])
+        cube([x1 - (usb_center_x + 7), tongue_t, tongue_h + 0.1]);
+
+    // Four tiny preload pads remove rattle without changing the rigid tongue fit.
+    for (p = [[x0 - 0.15, 18], [x1 - tongue_t, 88]])
+        translate([p[0], p[1], floor_t + 1.2])
+            cube([tongue_t + 0.15, 5, 0.35]);
+}
+
+module side_snap_finger(side, yy) {
+    x0 = wall + tongue_clearance;
+    x1 = mailbox_width - wall - tongue_clearance;
+    beam = 1.6;
+    lip = 0.9;
+    points_left = [
+        [x0, 0], [x0 + beam, 0], [x0 + beam, snap_h],
+        [x0, snap_h], [x0 - lip, snap_h - 1.1],
+        [x0, snap_h - 1.9]
+    ];
+    points_right = [
+        [x1 - beam, 0], [x1, 0], [x1, snap_h - 1.9],
+        [x1 + lip, snap_h - 1.1], [x1, snap_h],
+        [x1 - beam, snap_h]
+    ];
+
+    translate([0, yy + snap_w / 2, floor_t - 0.1])
+        rotate([90, 0, 0])
+            linear_extrude(height = snap_w)
+                polygon(points = side == "left" ? points_left : points_right);
+}
+
+module pcb_side_clip(edge_x, yy, side, board_bottom) {
+    beam = 1.6;
+    clip_w = 6;
+    clip_h = board_bottom + 2.7;
+    if (side == "left") {
+        translate([edge_x - beam, yy - clip_w / 2, floor_t - 0.1])
+            cube([beam, clip_w, clip_h + 0.1]);
+        translate([edge_x - beam, yy - clip_w / 2,
+                   floor_t + board_bottom + 1.45])
+            cube([beam + 0.8, clip_w, 0.8]);
+    } else {
+        translate([edge_x, yy - clip_w / 2, floor_t - 0.1])
+            cube([beam, clip_w, clip_h + 0.1]);
+        translate([edge_x - 0.8, yy - clip_w / 2,
+                   floor_t + board_bottom + 1.45])
+            cube([beam + 0.8, clip_w, 0.8]);
+    }
+}
+
+module pcb_mount(x, y, bx, by, clip_y1, clip_y2) {
+    c = rigid_clearance;
+    board_bottom = 1.2;
+    x0 = x - c;
+    x1 = x + bx + c;
+    y0 = y - c;
+    y1 = y + by + c;
+
+    for (px = [x + 2.5, x + bx - 2.5])
+        for (py = [y + 2.5, y + by - 2.5])
+            translate([px, py, floor_t])
                 translate([0, 0, -0.1])
-                    cylinder(h=5.2, d=hinge_pin_d + 2*snap_gap, $fn=24);
-                translate([-5, -0.4, -0.1])
-                    cube([10, 0.8, 5.2]);
+                    cylinder(h = board_bottom + 0.1, d = 3.0);
+
+    // Low rounded corner locators avoid connector edges and exposed components.
+    for (px = [x0 - 1.2, x1 + 1.2])
+        for (py = [y0 - 1.2, y1 + 1.2])
+            translate([px, py, floor_t - 0.1])
+                cylinder(h = board_bottom + 2.3, d = 2.4);
+
+    pcb_side_clip(x0, clip_y1, "left", board_bottom);
+    pcb_side_clip(x1, clip_y2, "right", board_bottom);
+}
+
+module battery_bay() {
+    x0 = floor_battery_x;
+    x1 = x0 + battery_x;
+    y0 = floor_battery_y;
+    y1 = y0 + battery_y;
+    post_h = battery_z + 1.2;
+
+    // Rounded corner cups define a 35.5 x 45 x 7 mm non-compressive envelope.
+    for (p = [[x0, y0, 1, 1], [x1, y0, -1, 1],
+              [x0, y1, 1, -1], [x1, y1, -1, -1]]) {
+        arm_x = p[3] < 0 ? 6.6 : 7.0;
+        translate([p[0], p[1], floor_t - 0.1])
+            cylinder(h = post_h + 0.1, d = 3.2);
+        translate([p[0] - (p[2] < 0 ? arm_x : 0),
+                   p[1] - 0.8, floor_t - 0.1])
+            cube([arm_x, 1.6, post_h + 0.1]);
+        translate([p[0] - 0.8,
+                   p[1] - (p[3] < 0 ? 7 : 0), floor_t - 0.1])
+            cube([1.6, 7, post_h + 0.1]);
+    }
+
+    // Two corner roofs sit 1.0 mm above the measured cell, never on the pouch.
+    for (yy = [y0, y1 - 3])
+        translate([x0 - 0.8, yy, floor_t + battery_z + 1.0])
+            cube([3.2, 3.0, 1.0]);
+}
+
+module electronics_mounts() {
+    battery_bay();
+
+    pcb_mount(floor_eyespi_x, floor_eyespi_y,
+              eyespi_width, eyespi_length, 14, 27);
+    pcb_mount(floor_buzzer_x, floor_buzzer_y,
+              buzzer_x, buzzer_y, 83, 95);
+    pcb_mount(floor_esp_x, floor_esp_y,
+              esp_width, esp_length, 58, 94);
+}
+
+module floor_tray() {
+    union() {
+        floor_plate();
+        tongue_segments();
+        for (yy = snap_y_positions) {
+            side_snap_finger("left", yy);
+            side_snap_finger("right", yy);
+        }
+        electronics_mounts();
+    }
+}
+
+module servo_flag() {
+    difference() {
+        union() {
+            cylinder(h = flag_t, d = 18);
+            translate([4, -flag_arm_w / 2, 0])
+                cube([flag_arm_length - 4, flag_arm_w, flag_t]);
+            translate([flag_arm_length - 4, -flag_plate_y / 2, 0])
+                cube([flag_plate_x, flag_plate_y, 3.2]);
+            hull() {
+                translate([6, -flag_arm_w / 2, 0])
+                    cube([3, flag_arm_w, flag_t]);
+                translate([flag_arm_length, -flag_plate_y / 2, 0])
+                    cube([2, flag_plate_y, 3.2]);
             }
         }
-    }
 
-    // Door-closed friction bump
-    translate([door_width/2, 0, 2])
-        sphere(d=1.5, $fn=16);
-}
-
-// --- Black door frame trim (AMS second color) ---
-module door_frame_trim() {
-    frame_w = tft_screen_width + 6;
-    frame_h = tft_screen_height + 6;
-    frame_border = 3;
-    frame_thickness = 0.6;
-
-    difference() {
-        cube([frame_w, frame_thickness, frame_h]);
-        translate([frame_border, -0.1, frame_border])
-            cube([frame_w - 2*frame_border, frame_thickness + 0.2, frame_h - 2*frame_border]);
-    }
-}
-
-// --- Flag arm with flag plate ---
-module mailbox_flag() {
-    // Hub that press-fits onto SG90 servo horn (cross-shaped socket)
-    difference() {
-        cylinder(h=flag_arm_thickness + 1, d=8, $fn=30);
-        translate([0, 0, -0.1]) {
-            cube([2.2, 6, flag_arm_thickness + 1.2], center=true);
-            cube([6, 2.2, flag_arm_thickness + 1.2], center=true);
+        // A stock SG90 horn nests in the wall-facing side and uses its center screw.
+        translate([0, 0, flag_t - horn_recess_depth]) {
+            cylinder(h = horn_recess_depth + eps, d = horn_boss_d);
+            translate([(horn_long_r - horn_short_r) / 2, 0,
+                       horn_recess_depth / 2])
+                cube([horn_long_r + horn_short_r, horn_arm_w,
+                      horn_recess_depth + eps], center = true);
+            translate([0, 0, horn_recess_depth / 2])
+                cube([horn_arm_w, 2 * horn_cross_r,
+                      horn_recess_depth + eps], center = true);
         }
-    }
-    // Arm
-    translate([0, -flag_arm_width/2, 0])
-        cube([flag_arm_length, flag_arm_width, flag_arm_thickness]);
-    // Flag plate
-    translate([flag_arm_length - flag_thickness, -flag_width/2, 0])
-        cube([flag_thickness, flag_width, flag_height]);
-    // Reinforcement at hub junction
-    translate([3, -flag_arm_width/2, 0])
-        cube([2, flag_arm_width, flag_arm_thickness + 1]);
-}
-
-// --- Light sensor bracket (separate piece, snaps into top window) ---
-// Holds the VEML6030 Qwiic board face-up with sensor exposed through window
-// No longer a dome cap — it's a thin frame that grips the PCB edges
-module sensor_bracket() {
-    // Thin rectangular frame that press-fits into the top window opening
-    // PCB sits inside, sensor chip faces up (exposed to light)
-    frame_l = lsens_pcb_l + 3;
-    frame_w = lsens_pcb_w + 3;
-    frame_h = lsens_total_h + 2;  // enough to hold PCB + clearance
-    wall = 1.2;
-
-    difference() {
-        cube([frame_l, frame_w, frame_h]);
-        // PCB pocket
-        translate([wall, wall, 1])
-            cube([lsens_pcb_l + fit_tolerance, lsens_pcb_w + fit_tolerance, frame_h]);
-    }
-    // Snap lips on two sides to grip PCB
-    for (dx = [wall, frame_l - wall - snap_lip]) {
-        translate([dx, wall + 3, 1 + lsens_pcb_t])
-            cube([snap_lip, 2, snap_lip]);
-    }
-    // Qwiic connector cutouts on two edges
-    for (dy = [0, frame_w - wall]) {
-        translate([frame_l/2 - qwiic_plug_w/2 - 1, dy - 0.1, 0])
-            cube([qwiic_plug_w + 2, wall + 0.2, frame_h]);
+        translate([0, 0, -eps])
+            cylinder(h = flag_t + 2 * eps, d = horn_screw_d);
     }
 }
 
-// --- Component tray (slides into body from front on rail grooves) ---
-module component_tray() {
-    tray_width  = mailbox_width - 2*wall_thickness - 2*fit_tolerance;
-    tray_length = mailbox_length - 2*wall_thickness - 2*fit_tolerance;
-    tray_height = 1.5;
+module place_flag(angle = 0) {
+    // angle 0 is raised; -90 points toward the front.
+    translate([mailbox_width + flag_wall_gap + flag_t,
+               servo_pivot_y, servo_pivot_z])
+        rotate([0, -90, 0])
+            rotate([0, 0, angle])
+                servo_flag();
+}
 
-    // Slide rails on edges
-    cube([2, tray_length, tray_height]);
-    translate([tray_width - 2, 0, 0])
-        cube([2, tray_length, tray_height]);
-    // Main platform
-    translate([2, 0, 0])
-        cube([tray_width - 4, tray_length, tray_height]);
+module floor_component_keepouts() {
+    color([0.2, 0.5, 0.9, 0.35])
+        translate([floor_esp_x, floor_esp_y, 1.2])
+            cube([esp_width, esp_length, esp_height]);
+    color([0.9, 0.6, 0.1, 0.35])
+        translate([floor_battery_x, floor_battery_y, 0])
+            cube([battery_x, battery_y, battery_z]);
+    color([0.7, 0.2, 0.8, 0.35])
+        translate([floor_eyespi_x, floor_eyespi_y, 1.2])
+            cube([eyespi_width, eyespi_length, eyespi_height]);
+    color([0.8, 0.2, 0.2, 0.35])
+        translate([floor_buzzer_x, floor_buzzer_y, 1.2])
+            cube([buzzer_x, buzzer_y, buzzer_z]);
+}
 
-    // ---- ESP32 CRADLE (RIGHT side, back — USB-C facing rear wall) ----
-    esp_x = tray_width - esp_width - 5;
-    esp_y = tray_length - esp_length - 3;
+module component_keepouts() {
+    floor_component_keepouts();
+    body_y0 = servo_pivot_y - 5.8;
+    color([0.1, 0.7, 0.7, 0.35])
+        translate([mailbox_width - wall - servo_body_x,
+                   body_y0, servo_pivot_z - servo_pivot_above_bottom])
+            cube([servo_body_x, servo_body_y, servo_body_z]);
+}
 
-    // Side rails (hold PCB edges)
-    translate([esp_x - 1.5, esp_y, tray_height])
-        cube([1.5, esp_length, esp_height * 0.7]);
-    translate([esp_x + esp_width + fit_tolerance, esp_y, tray_height])
-        cube([1.5, esp_length, esp_height * 0.7]);
-    // Front stop
-    translate([esp_x, esp_y - 1.5, tray_height])
-        cube([esp_width, 1.5, esp_height * 0.5]);
-    // Rear snap clips
-    for (dx = [esp_x + 3, esp_x + esp_width - 5]) {
-        translate([dx, esp_y + esp_length, tray_height]) {
-            cube([2, snap_flex_len, esp_height * 0.6]);
-            translate([0, snap_flex_len - snap_lip, esp_height * 0.6])
-                cube([2, snap_lip, snap_lip]);
+module assembled(show_keepouts = false) {
+    color(color_housing) housing();
+    color(color_floor) translate([0, 0, -floor_t]) floor_tray();
+    color(color_flag) place_flag(0);
+    if (show_keepouts)
+        translate([0, 0, 0]) component_keepouts();
+}
+
+module tft_coupon() {
+    translate([-6, 0, -17])
+        intersection() {
+            housing();
+            translate([6, -eps, 17])
+                cube([68, 14.5, 40]);
         }
-    }
+}
 
-    // ---- BATTERY BAY (LEFT side, front of tray) ----
-    bat_x = 5;
-    bat_y = 3;  // tight to front edge
-
-    // Side walls
-    translate([bat_x - 1.2, bat_y, tray_height])
-        cube([1.2, battery_length, battery_height + 1]);
-    translate([bat_x + battery_width + fit_tolerance, bat_y, tray_height])
-        cube([1.2, battery_length, battery_height + 1]);
-    // Front wall
-    translate([bat_x, bat_y - 1, tray_height])
-        cube([battery_width, 1, battery_height]);
-    // Rear snap clips
-    for (dx = [bat_x + 5, bat_x + battery_width - 7]) {
-        translate([dx, bat_y + battery_length, tray_height]) {
-            cube([2, 3, battery_height]);
-            translate([0, 3 - snap_lip, battery_height])
-                cube([2, snap_lip, snap_lip]);
+module snap_housing_coupon() {
+    translate([0, -(snap_y_positions[0] - 7), 0])
+        intersection() {
+            housing();
+            translate([-eps, snap_y_positions[0] - 7, -eps])
+                cube([8, 14, 12]);
         }
-    }
+}
 
-    // ---- EYESPI BREAKOUT CRADLE (LEFT side, behind battery) ----
-    eyespi_x = 5;
-    eyespi_y = bat_y + battery_length + 2;  // 2mm gap after battery
-
-    // Side rails
-    translate([eyespi_x - 1.2, eyespi_y, tray_height])
-        cube([1.2, eyespi_length, eyespi_height + 1]);
-    translate([eyespi_x + eyespi_width, eyespi_y, tray_height])
-        cube([1.2, eyespi_length, eyespi_height + 1]);
-    // Front stop
-    translate([eyespi_x, eyespi_y - 1, tray_height])
-        cube([eyespi_width, 1, eyespi_height * 0.6]);
-    // Rear snap clip
-    translate([eyespi_x + eyespi_width/2 - 1, eyespi_y + eyespi_length, tray_height]) {
-        cube([2, 3, eyespi_height]);
-        translate([0, 3 - snap_lip, eyespi_height])
-            cube([2, snap_lip, snap_lip]);
-    }
-
-    // ---- QWIIC BUZZER CRADLE (LEFT side, behind EYESPI — under sound vents) ----
-    // PCB lays flat, buzzer dome faces down toward vent holes in body floor
-    buz_x = 5;
-    buz_y = eyespi_y + eyespi_length + 2;  // 2mm gap after EYESPI
-
-    // Four corner posts for 25.9×25.9mm PCB
-    for (cx = [-1, buzz_pcb_l + fit_tolerance]) {
-        for (cy = [-1, buzz_pcb_w + fit_tolerance]) {
-            translate([buz_x + cx, buz_y + cy, tray_height])
-                cube([1.5, 1.5, buzz_total_h + 1]);
+module snap_floor_coupon() {
+    translate([0, -(snap_y_positions[0] - 7), 0])
+        intersection() {
+            floor_tray();
+            translate([-eps, snap_y_positions[0] - 7, -eps])
+                cube([9, 14, 12]);
         }
-    }
-    // Two snap lips on opposite corners
-    translate([buz_x - 1, buz_y + buzz_pcb_w/2 - 1, tray_height + buzz_total_h])
-        cube([1.5, 2, snap_lip]);
-    translate([buz_x + buzz_pcb_l + fit_tolerance, buz_y + buzz_pcb_w/2 - 1, tray_height + buzz_total_h])
-        cube([1.5, 2, snap_lip]);
-    // Qwiic connector clearance notches on two edges
-    // (connectors are on both short edges of buzzer PCB)
-
-    // ---- TRAY FRONT STOP ----
-    translate([tray_width/2 - 3, tray_length - 2, 0])
-        cube([6, 2, tray_height + 1]);
-
 }
 
-// =============================================================
-// ASSEMBLY / RENDER
-// =============================================================
-// PRINT QUANTITIES (building 2 mailboxes):
-//   body             ×2  (White PLA)
-//   door             ×2  (White PLA)
-//   door_frame       ×2  (Black PLA — AMS or separate)
-//   flag             ×2  (Green PLA)
-//   tray             ×2  (Gray PLA)
-//   sensor_bracket   ×2  (Gray PLA or White PLA)
-// Total: 12 parts (all PLA — no separate PETG print needed)
-
-if (render_part == "assembled") {
-    color(color_body)
-        mailbox_body();
-
-    color(color_door_panel)
-    translate([(mailbox_width - door_width)/2, 0, wall_thickness + 5])
-        mailbox_door();
-
-    color(color_door_frame)
-    translate([
-        (mailbox_width - door_width)/2 + (door_width - tft_screen_width)/2 - 3,
-        -0.1,
-        wall_thickness + 5 + door_height - tft_screen_height - 13
-    ])
-        door_frame_trim();
-
-    color(color_flag)
-    translate([
-        mailbox_width + 2,
-        mailbox_length * 0.35 + servo_length/2,
-        wall_thickness + 5 + servo_tab_height_from_bottom
-    ])
-    rotate([0, 90, 0])
-        mailbox_flag();
-
-    color(color_internal)
-    translate([wall_thickness + fit_tolerance, wall_thickness + fit_tolerance, wall_thickness])
-        component_tray();
-
-    color(color_sensor)
-    translate([
-        mailbox_width * 0.65 - lsens_pcb_l/2 - 1,
-        mailbox_length * 0.25 - lsens_pcb_w/2 - 1,
-        mailbox_height + roof_radius - wall_thickness - 0.5
-    ])
-        sensor_bracket();
+module horn_coupon() {
+    translate([9, 9, 0])
+        intersection() {
+            servo_flag();
+            translate([-9, -9, -eps])
+                cube([18, 18, flag_t + 2 * eps]);
+        }
 }
 
-if (render_part == "body") mailbox_body();
-if (render_part == "door") mailbox_door();
-if (render_part == "door_frame") door_frame_trim();
-if (render_part == "flag") mailbox_flag();
-if (render_part == "tray") component_tray();
-if (render_part == "sensor_bracket") sensor_bracket();
+if (render_part == "housing") housing();
+if (render_part == "floor") floor_tray();
+if (render_part == "flag") servo_flag();
+if (render_part == "assembled") assembled(false);
 
-// --- Batch layout for Bambu P1S ---
-if (render_part == "all_pla") {
-    for (i = [0:1]) {
-        x_off = i * (mailbox_width + 15);
+if (render_part == "print_layout") {
+    housing();
+    translate([95, 0, 0]) floor_tray();
+    translate([100, 122, 0]) servo_flag();
+}
 
-        translate([x_off, 0, 0])
-            mailbox_body();
-        translate([x_off, mailbox_length + 10, 0])
-            mailbox_door();
-        translate([x_off, mailbox_length + door_height + 20, 0])
-            door_frame_trim();
-        translate([x_off + mailbox_width + 5, 0, 0])
-            mailbox_flag();
-        translate([x_off, -50, 0])
-            component_tray();
-        translate([x_off + mailbox_width + 5, -50, 0])
-            sensor_bracket();
+if (render_part == "section") {
+    intersection() {
+        assembled(true);
+        translate([-5, -5, -5])
+            cube([mailbox_width / 2 + 5,
+                  mailbox_length + 10,
+                  straight_wall_h + roof_radius + 10]);
     }
 }
+
+if (render_part == "debug_clearances") assembled(true);
+
+if (render_part == "debug_floor_collision") {
+    intersection() {
+        housing();
+        floor_component_keepouts();
+    }
+}
+
+if (render_part == "debug_flag_sweep") {
+    color([0.9, 0.9, 0.9, 0.35]) housing();
+    for (aa = [0, -45, -90])
+        color([0.15, 0.75, 0.25, aa == 0 ? 0.9 : 0.25])
+            place_flag(aa);
+    color([0.9, 0.2, 0.2, 0.2])
+        translate([mailbox_width + flag_wall_gap,
+                   servo_pivot_y, servo_pivot_z])
+            rotate([0, 90, 0])
+                cylinder(h = flag_t, r = flag_arm_length + flag_plate_x);
+}
+
+if (render_part == "coupon_tft") tft_coupon();
+if (render_part == "coupon_snap_housing") snap_housing_coupon();
+if (render_part == "coupon_snap_floor") snap_floor_coupon();
+if (render_part == "coupon_flag_horn") horn_coupon();

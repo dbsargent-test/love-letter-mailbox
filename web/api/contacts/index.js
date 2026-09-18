@@ -1,7 +1,7 @@
 const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
-const { verifyRequest, sanitizeDisplayName } = require("../shared/auth");
+const { verifyUserSession, sanitizeDisplayName } = require("../shared/auth");
 
-const ACCOUNT_NAME = process.env.STORAGE_ACCOUNT_NAME || "lovelettermlbx";
+const ACCOUNT_NAME = process.env.STORAGE_ACCOUNT_NAME || "";
 const ACCOUNT_KEY = process.env.STORAGE_ACCOUNT_KEY || "";
 
 function getTable(name) {
@@ -14,7 +14,14 @@ function oDataEscape(val) {
 }
 
 module.exports = async function (context, req) {
-  const user = verifyRequest(req);
+  let user;
+  try {
+    user = await verifyUserSession(req, getTable("users"), getTable("revokedtokens"));
+  } catch (error) {
+    context.log.error("Authentication service error:", error);
+    context.res = { status: 503, body: { error: "Authentication service unavailable" } };
+    return;
+  }
   if (!user) {
     context.res = { status: 401, body: { error: "Authentication required" } };
     return;

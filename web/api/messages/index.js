@@ -1,7 +1,16 @@
 const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
 const { BlobServiceClient, StorageSharedKeyCredential, generateBlobSASQueryParameters, BlobSASPermissions } = require("@azure/storage-blob");
 const crypto = require("crypto");
-const { verifyRequest, verifyDeviceKey, extractToken, isTokenRevoked, checkRateLimit, recordAttempt, auditLog } = require("../shared/auth");
+const { verifyUserSession, verifyDeviceKey, checkRateLimit, recordAttempt, auditLog } = require("../shared/auth");
+const {
+  formatDeviceTimestamp,
+  getPageSize,
+  sortMessages,
+} = require("../shared/message-order");
+const {
+  MAX_INPUT_BYTES,
+  normalizeMessagePhoto,
+} = require("../shared/image-normalization");
 
 // Strict allowlist: only lowercase letters, numbers, underscore (matches registration regex)
 function isValidUsername(val) {
@@ -14,9 +23,9 @@ function oDataEscape(val) {
 }
 
 const MAX_MESSAGE_LENGTH = 500;
-const MAX_PHOTO_SIZE = 2 * 1024 * 1024; // 2MB base64
+const MAX_PHOTO_DATA_LENGTH = Math.ceil(MAX_INPUT_BYTES * 4 / 3) + 1024;
 
-const ACCOUNT_NAME = process.env.STORAGE_ACCOUNT_NAME || "lovelettermlbx";
+const ACCOUNT_NAME = process.env.STORAGE_ACCOUNT_NAME || "";
 const ACCOUNT_KEY = process.env.STORAGE_ACCOUNT_KEY || "";
 const TABLE_NAME = "messages";
 const PHOTOS_CONTAINER = "photos";
@@ -49,28 +58,30 @@ function generatePhotoSasUrl(blobUrl) {
 }
 
 module.exports = async function (context, req) {
-  // Authenticate — accept JWT (web users) or device key (ESP32)
-  const deviceKeysTable = new TableClient(
-    `https://${ACCOUNT_NAME}.table.core.windows.net`, "devicekeys",
-    new AzureNamedKeyCredential(ACCOUNT_NAME, ACCOUNT_KEY)
-  );
-  const user = verifyRequest(req) || await verifyDeviceKey(req, deviceKeysTable);
+  let user;
+  try {
+    const credential = new AzureNamedKeyCredential(ACCOUNT_NAME, ACCOUNT_KEY);
+    const deviceKeysTable = new TableClient(
+      `https://${ACCOUNT_NAME}.table.core.windows.net`, "devicekeys", credential
+    );
+    user = await verifyDeviceKey(req, deviceKeysTable);
+    if (!user) {
+      const usersTable = new TableClient(
+        `https://${ACCOUNT_NAME}.table.core.windows.net`, "users", credential
+      );
+      const revokedTable = new TableClient(
+        `https://${ACCOUNT_NAME}.table.core.windows.net`, "revokedtokens", credential
+      );
+      user = await verifyUserSession(req, usersTable, revokedTable);
+    }
+  } catch (error) {
+    context.log.error("Authentication service error:", error);
+    context.res = { status: 503, body: { error: "Authentication service unavailable" } };
+    return;
+  }
   if (!user) {
     context.res = { status: 401, body: { error: "Authentication required" } };
     return;
-  }
-
-  // Check token revocation (skip for device keys)
-  if (!user.isDevice) {
-    const token = extractToken(req);
-    const revokedTable = new TableClient(
-      `https://${ACCOUNT_NAME}.table.core.windows.net`, "revokedtokens",
-      new AzureNamedKeyCredential(ACCOUNT_NAME, ACCOUNT_KEY)
-    );
-    if (await isTokenRevoked(token, revokedTable)) {
-      context.res = { status: 401, body: { error: "Token has been revoked. Please log in again." } };
-      return;
-    }
   }
 
   // Block API if password change required (except for device keys)
@@ -128,22 +139,27 @@ async function getMessages(context, req, user) {
     const sentTime = new Date(entity.timestamp_sent || entity.timestamp).getTime();
     const canUnsend = viewSent && (Date.now() - sentTime < 5 * 60 * 1000);
 
-    messages.push({
+    const timestamp = entity.timestamp_sent || entity.timestamp;
+    const message = {
       id: entity.rowKey,
       sender: entity.sender,
       recipient: entity.partitionKey,
       text: entity.text || "",
       photoUrl: generatePhotoSasUrl(entity.photoUrl),
       read: entity.read || false,
-      timestamp: entity.timestamp_sent || entity.timestamp,
+      timestamp,
       canUnsend
-    });
+    };
+    if (user.isDevice) {
+      message.displayTimestamp = formatDeviceTimestamp(timestamp, user.timeZone);
+    }
+    messages.push(message);
   }
 
-  messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+  sortMessages(messages, unreadOnly);
 
   const page = parseInt(req.query.page) || 0;
-  const pageSize = 10;
+  const pageSize = getPageSize(req.query.pageSize);
   const paged = messages.slice(page * pageSize, (page + 1) * pageSize);
 
   // Count unread in user's own mailbox (for badge)
@@ -181,12 +197,17 @@ async function postMessage(context, req, user) {
     return;
   }
 
+  if (hasPhoto && typeof photoData !== "string") {
+    context.res = { status: 400, body: { error: "Photo data is required" } };
+    return;
+  }
+
   if (text && text.length > MAX_MESSAGE_LENGTH) {
     context.res = { status: 400, body: { error: `Message too long (max ${MAX_MESSAGE_LENGTH} chars)` } };
     return;
   }
 
-  if (photoData && photoData.length > MAX_PHOTO_SIZE) {
+  if (photoData && photoData.length > MAX_PHOTO_DATA_LENGTH) {
     context.res = { status: 400, body: { error: "Photo too large (max 2MB)" } };
     return;
   }
@@ -230,14 +251,28 @@ async function postMessage(context, req, user) {
 
   const tableClient = getTableClient();
   let photoUrl = null;
+  let entityPhotoMetadata = null;
 
   if (hasPhoto && photoData) {
     try {
       const base64Data = photoData.split(",")[1] || photoData;
-      const buffer = Buffer.from(base64Data, "base64");
+      const sourceBuffer = Buffer.from(base64Data, "base64");
+      if (sourceBuffer.length === 0 || sourceBuffer.length > MAX_INPUT_BYTES) {
+        context.res = { status: 400, body: { error: "Photo too large or invalid" } };
+        return;
+      }
 
-      // Content Safety: moderate image before uploading
-      const imgResult = await moderateImage(buffer, context, user.username, messageId);
+      let normalized;
+      try {
+        normalized = await normalizeMessagePhoto(sourceBuffer);
+      } catch (error) {
+        context.log.warn("Photo normalization rejected upload:", error.message);
+        context.res = { status: 400, body: { error: "Photo format is invalid or unsupported" } };
+        return;
+      }
+
+      // Moderate the exact normalized image that will be stored and displayed.
+      const imgResult = await moderateImage(normalized.data, context, user.username, messageId);
       if (imgResult === true) {
         context.res = { status: 400, body: { error: "Image contains inappropriate content and cannot be sent." } };
         return;
@@ -251,12 +286,20 @@ async function postMessage(context, req, user) {
       const containerClient = blobService.getContainerClient(PHOTOS_CONTAINER);
       const blobName = `${messageId}.jpg`;
       const blockBlobClient = containerClient.getBlockBlobClient(blobName);
-      await blockBlobClient.upload(buffer, buffer.length, {
-        blobHTTPHeaders: { blobContentType: "image/jpeg" }
+      await blockBlobClient.upload(normalized.data, normalized.size, {
+        blobHTTPHeaders: { blobContentType: "image/jpeg" },
+        metadata: {
+          width: String(normalized.width),
+          height: String(normalized.height),
+          normalizerVersion: String(normalized.version),
+        },
       });
       photoUrl = blockBlobClient.url;
+      entityPhotoMetadata = normalized;
     } catch (err) {
       context.log.error("Photo upload failed:", err.message);
+      context.res = { status: 500, body: { error: "Photo could not be stored" } };
+      return;
     }
   }
 
@@ -266,6 +309,10 @@ async function postMessage(context, req, user) {
     sender: senderName.substring(0, 30),
     text: (text || "").substring(0, 500),
     photoUrl: photoUrl || "",
+    photoWidth: entityPhotoMetadata?.width || 0,
+    photoHeight: entityPhotoMetadata?.height || 0,
+    photoBytes: entityPhotoMetadata?.size || 0,
+    photoVersion: entityPhotoMetadata?.version || 0,
     read: false,
     timestamp_sent: new Date().toISOString()
   };
@@ -364,7 +411,7 @@ async function deleteMessage(context, req, user, messageId) {
 const CONTENT_SAFETY_ENDPOINT = process.env.CONTENT_SAFETY_ENDPOINT;
 const CONTENT_SAFETY_KEY = process.env.CONTENT_SAFETY_KEY;
 const SEVERITY_THRESHOLD = 2; // Block severity 2+ (Medium and above)
-const ADMIN_USERNAME = "doug"; // Receives violation alerts
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
 
 function getModerationTable(name) {
   return new TableClient(
@@ -472,17 +519,20 @@ async function recordViolation(sender, messageId, contentType, categories, conte
       violationCount++;
     }
 
-    // Send alert to admin's mailbox as a system message
-    const msgTable = getTableClient();
-    const alertId = `alert-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-    await msgTable.upsertEntity({
-      partitionKey: ADMIN_USERNAME,
-      rowKey: alertId,
-      sender: "system",
-      text: `⚠️ CONTENT VIOLATION: User @${sender} attempted to send a blocked ${contentType}. Categories: ${categoryDetails}. Total violations by this user: ${violationCount}. Message ID: ${messageId}`,
-      read: false,
-      timestamp_sent: new Date().toISOString()
-    }, "Replace");
+    if (ADMIN_USERNAME) {
+      const msgTable = getTableClient();
+      const alertId = `alert-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
+      await msgTable.upsertEntity({
+        partitionKey: ADMIN_USERNAME,
+        rowKey: alertId,
+        sender: "system",
+        text: `CONTENT VIOLATION: User @${sender} attempted to send a blocked ${contentType}. Categories: ${categoryDetails}. Total violations by this user: ${violationCount}. Message ID: ${messageId}`,
+        read: false,
+        timestamp_sent: new Date().toISOString()
+      }, "Replace");
+    } else {
+      context.log.warn("ADMIN_USERNAME is not configured; no mailbox alert was created.");
+    }
 
     context.log.warn(`Content violation by ${sender}: ${categoryDetails} (total: ${violationCount})`);
   } catch (err) {

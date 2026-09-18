@@ -1,7 +1,7 @@
 const { TableClient, AzureNamedKeyCredential } = require("@azure/data-tables");
 const bcrypt = require("bcryptjs");
 const {
-  createToken, verifyRequest, extractToken, revokeToken,
+  createToken, verifyRequest, verifyUserSession, extractToken, revokeToken,
   checkRateLimit, recordAttempt, clearAttempts,
   sanitizeDisplayName, auditLog
 } = require("../shared/auth");
@@ -112,6 +112,7 @@ async function handleLogin(context, req) {
     username: userEntity.rowKey,
     partner: userEntity.partner,
     mustChangePassword: userEntity.mustChangePassword === true,
+    sessionVersion: userEntity.sessionVersion,
   });
 
   await auditLog(audit, "login_success", { username: userEntity.rowKey, ip: req.headers["x-forwarded-for"] || "unknown" });
@@ -131,7 +132,9 @@ async function handleLogin(context, req) {
 }
 
 async function handleChangePassword(context, req) {
-  const user = verifyRequest(req);
+  const usersTable = getUsersTable();
+  const revokedTable = getRevokedTable();
+  const user = await verifyUserSession(req, usersTable, revokedTable);
   if (!user) {
     context.res = { status: 401, body: { error: "Authentication required" } };
     return;
@@ -149,7 +152,6 @@ async function handleChangePassword(context, req) {
     return;
   }
 
-  const usersTable = getUsersTable();
   const audit = getAuditTable();
   const userEntity = await usersTable.getEntity("user", user.username);
 
@@ -161,18 +163,22 @@ async function handleChangePassword(context, req) {
 
   userEntity.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   userEntity.mustChangePassword = false;
+  userEntity.sessionVersion = (Number(userEntity.sessionVersion) || 0) + 1;
   await usersTable.updateEntity(userEntity, "Replace");
 
-  // Revoke current token so old sessions are forced to re-login
+  // Retain the individual blocklist entry as defense in depth.
   const currentToken = extractToken(req);
-  const revokedTable = getRevokedTable();
   try { await revokedTable.createTable(); } catch { /* exists */ }
   await revokeToken(currentToken, revokedTable);
 
   await auditLog(audit, "password_changed", { username: user.username });
 
   // Issue a fresh token
-  const newToken = createToken({ username: user.username, partner: userEntity.partner });
+  const newToken = createToken({
+    username: user.username,
+    partner: userEntity.partner,
+    sessionVersion: userEntity.sessionVersion,
+  });
 
   context.res = {
     status: 200,
@@ -265,12 +271,13 @@ async function handleRegister(context, req) {
     partnerDisplayName: "",
     passwordHash: await bcrypt.hash(password, BCRYPT_ROUNDS),
     mustChangePassword: false,
+    sessionVersion: 0,
     createdAt: new Date().toISOString(),
   };
 
   await usersTable.createEntity(userEntity);
 
-  const token = createToken({ username: cleanUsername, partner: "" });
+  const token = createToken({ username: cleanUsername, partner: "", sessionVersion: 0 });
 
   try { await audit.createTable(); } catch { /* exists */ }
   await auditLog(audit, "user_registered", { username: cleanUsername, ip });
@@ -393,6 +400,7 @@ async function handleResetPassword(context, req) {
   const userEntity = await usersTable.getEntity("user", cleanUsername);
   userEntity.passwordHash = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
   userEntity.mustChangePassword = false;
+  userEntity.sessionVersion = (Number(userEntity.sessionVersion) || 0) + 1;
   await usersTable.updateEntity(userEntity, "Replace");
   await resetTable.deleteEntity("reset", cleanUsername);
   await auditLog(audit, "password_reset_completed", { username: cleanUsername });
@@ -447,7 +455,8 @@ async function sendResetEmail(toEmail, code, username, context) {
 }
 
 async function handleUpdateEmail(context, req) {
-  const user = await verifyRequest(req);
+  const usersTable = getUsersTable();
+  const user = await verifyUserSession(req, usersTable, getRevokedTable());
   if (!user) {
     context.res = { status: 401, body: { error: "Unauthorized" } };
     return;
@@ -459,7 +468,6 @@ async function handleUpdateEmail(context, req) {
     return;
   }
 
-  const usersTable = getUsersTable();
   const userEntity = await usersTable.getEntity("user", user.username);
   userEntity.email = email.trim().toLowerCase();
   await usersTable.updateEntity(userEntity, "Merge");
@@ -475,12 +483,12 @@ async function handleUpdateEmail(context, req) {
 }
 
 async function handleGetProfile(context, req) {
-  const user = await verifyRequest(req);
+  const usersTable = getUsersTable();
+  const user = await verifyUserSession(req, usersTable, getRevokedTable());
   if (!user) {
     context.res = { status: 401, body: { error: "Unauthorized" } };
     return;
   }
-  const usersTable = getUsersTable();
   try {
     const entity = await usersTable.getEntity("user", user.username);
     context.res = {

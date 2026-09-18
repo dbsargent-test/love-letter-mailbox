@@ -9,11 +9,19 @@ if (!JWT_SECRET) {
 const TOKEN_EXPIRY = "7d";
 const JWT_ISSUER = "love-letter-mailbox";
 const JWT_AUDIENCE = "love-letter-web";
+const DEFAULT_DEVICE_TIME_ZONE =
+  process.env.DEFAULT_DEVICE_TIME_ZONE || "UTC";
 
 function createToken(user) {
   if (!JWT_SECRET) throw new Error("JWT_SECRET not configured");
   return jwt.sign(
-    { username: user.username, mailbox: user.username, partner: user.partner, mustChangePw: user.mustChangePassword || false },
+    {
+      username: user.username,
+      mailbox: user.username,
+      partner: user.partner,
+      mustChangePw: user.mustChangePassword || false,
+      sessionVersion: Number(user.sessionVersion) || 0,
+    },
     JWT_SECRET,
     { expiresIn: TOKEN_EXPIRY, issuer: JWT_ISSUER, audience: JWT_AUDIENCE }
   );
@@ -42,9 +50,42 @@ async function isTokenRevoked(token, tableClient) {
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
     await tableClient.getEntity("revoked", tokenHash);
     return true;
-  } catch {
-    return false;
+  } catch (error) {
+    if (error && (error.statusCode === 404 || error.code === "ResourceNotFound")) {
+      return false;
+    }
+    throw error;
   }
+}
+
+async function verifyUserSession(req, usersTable, revokedTable) {
+  const tokenUser = verifyRequest(req);
+  if (!tokenUser) return null;
+
+  const token = extractToken(req);
+  if (await isTokenRevoked(token, revokedTable)) return null;
+
+  let entity;
+  try {
+    entity = await usersTable.getEntity("user", tokenUser.username);
+  } catch (error) {
+    if (error && (error.statusCode === 404 || error.code === "ResourceNotFound")) {
+      return null;
+    }
+    throw error;
+  }
+
+  const tokenVersion = Number(tokenUser.sessionVersion) || 0;
+  const currentVersion = Number(entity.sessionVersion) || 0;
+  if (tokenVersion !== currentVersion) return null;
+
+  return {
+    ...tokenUser,
+    username: entity.rowKey,
+    mailbox: entity.rowKey,
+    partner: entity.partner || "",
+    mustChangePw: entity.mustChangePassword === true,
+  };
 }
 
 async function revokeToken(token, tableClient) {
@@ -66,13 +107,17 @@ async function revokeToken(token, tableClient) {
 
 // Device API keys verified against Table Storage (scalable, not hardcoded)
 async function verifyDeviceKey(req, tableClient) {
-  const key = req.headers["x-device-key"] || req.query.deviceKey;
+  const key = req.headers["x-device-key"];
   if (!key) return null;
   try {
     // Hash the key and look it up in the devicekeys table
     const keyHash = crypto.createHash("sha256").update(key).digest("hex");
     const entity = await tableClient.getEntity("devicekey", keyHash);
-    return { mailbox: entity.mailbox, isDevice: true };
+    return {
+      mailbox: entity.mailbox,
+      isDevice: true,
+      timeZone: entity.timeZone || DEFAULT_DEVICE_TIME_ZONE,
+    };
   } catch {
     return null;
   }
@@ -146,7 +191,8 @@ async function auditLog(tableClient, event, details) {
 }
 
 module.exports = {
-  createToken, verifyRequest, verifyDeviceKey, extractToken, isTokenRevoked, revokeToken,
+  createToken, verifyRequest, verifyUserSession, verifyDeviceKey,
+  extractToken, isTokenRevoked, revokeToken,
   checkRateLimit, recordAttempt, clearAttempts,
   sanitizeDisplayName, auditLog
 };

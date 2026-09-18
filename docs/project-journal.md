@@ -135,10 +135,136 @@ Features we added **beyond** the original Love Letter Tech product:
 - [x] Security audit & hardening — 21 findings fixed, 22/24 live tests passed
 - [ ] Register GIPHY API key for GIF search (optional)
 - [ ] Extract inline JS to external file (remove CSP `unsafe-inline`)
-- [ ] Write ESP32-C5 firmware
+- [ ] Write complete ESP32-C5 firmware
+- [x] Compile, flash, and visually verify the ST7789 display diagnostic
 - [ ] Design 3D printable enclosure
 - [ ] Build spinning heart servo notification (Lovebox-inspired)
 - [ ] Test end-to-end when hardware arrives
+
+### 2026-09-16 (Wed) — Display Firmware Validation
+
+- Installed Arduino IDE 2.3.10 and Espressif Arduino core 3.3.11.
+- Selected the official `esp32:esp32:sparkfun_esp32c5_thing_plus` board target.
+- Installed Adafruit ST7735/ST7789 1.11.0, GFX 1.12.6, and BusIO 1.17.4.
+- Added `firmware/display_smoke_test/display_smoke_test.ino`.
+- Compiled successfully: 356,258 bytes of flash and 19,664 bytes of RAM.
+- Flashed the diagnostic to COM4; all four flash regions passed hash
+  verification.
+- Serial confirmed SCK 10, MOSI 8, CS 6, DC 5, RST 4, and LITE 3, then printed
+  `Display pattern rendered.`
+- Visually verified four colored bands plus `LOVE LETTER` and `DISPLAY OK`.
+- Kept the LiPo, servo, and Qwiic devices disconnected throughout the test.
+- Connected the first keyed Qwiic cable from the ESP32-C5 to the red Qwiic
+  Button.
+- Added, compiled, and flashed
+  `firmware/qwiic_button_smoke_test/qwiic_button_smoke_test.ino`.
+- Verified Button address `0x6F`, device ID `0x5D`, SDA `IO23`, and SCL `IO24`.
+- Physically verified press/release detection, onboard Button LED control, and
+  green/blue TFT status changes.
+- Connected the Button's unused Qwiic port to the VEML6030 light sensor.
+- Added, compiled, and flashed
+  `firmware/qwiic_chain_smoke_test/qwiic_chain_smoke_test.ino`.
+- Verified the VEML6030 at `0x48`; serial values changed from 9 to 118 lux as
+  the sensor was covered and uncovered, and the TFT showed 124 lux.
+- Connected the VEML6030 to the Qwiic Buzzer, completing the full daisy-chain.
+- Installed SparkFun Qwiic Buzzer Library 1.1.0 and SparkFun Toolkit 1.2.0.
+- Extended the chain diagnostic to detect the Buzzer at `0x34`, play a 150 ms
+  medium-volume startup tone, and beep on button presses.
+- Full-chain firmware compiled at 28% flash and 6% RAM and flashed with all
+  regions hash-verified.
+- Serial confirmed all three addresses, and the startup confirmation tone was
+  heard.
+- Deferred the SG90 servo until a proper common-ground distribution point is
+  available; the display already occupies the ESP32-C5 header GND pin.
+- Added the first integrated, servo-free mailbox firmware for authenticated
+  HTTPS polling, oldest-unread text display, buzzer notification, ambient-light
+  backlight control, and button acknowledgement.
+- Added secure one-time device-key provisioning. Only the SHA-256 key hash is
+  stored in Azure Table Storage; the plaintext key remains local to the device
+  configuration.
+- Corrected unread message ordering to FIFO while preserving newest-first
+  ordering for normal message history.
+- Validated the backend ordering tests and compiled the integrated firmware at
+  66% flash and 15% RAM using the OTA-capable Minimal SPIFFS partition.
+- Deployed the FIFO unread-message API update to the production Static Web App.
+- Provisioned a unique key for the recipient's physical mailbox. Only the key hash
+  was stored in Azure; the plaintext remained in ignored local configuration.
+- Flashed the integrated firmware to the ESP32-C5 on COM4. Bootloader,
+  partition table, boot application, and application image all passed hash
+  verification.
+- Completed the servo-free end-to-end acceptance test: Wi-Fi connected, an
+  an existing unread message appeared on the TFT, the buzzer sounded,
+  the VEML6030 changed backlight brightness, and the Qwiic Button acknowledged
+  the message.
+- Serial confirmed the acknowledged message ID and immediately displayed the
+  next FIFO unread message. The production API confirmed the acknowledged ID
+  was no longer unread; four unread messages remained.
+- With explicit confirmation, accepted a pending contact request between the
+  paired accounts. Verified reciprocal `accepted` contact records for both users
+  at `2026-09-16T20:55:24.607Z`.
+- Added server-authoritative photo normalization to baseline JPEG within
+  216×160 using proportional fit-inside scaling, metadata rotation, no
+  enlargement, and no cropping.
+- Updated the web history and preview so portrait and landscape images are
+  centered at their natural proportions rather than stretched to card width.
+- Added a dry-run-first migration utility that creates immutable versioned
+  derivatives, preserves original blobs, and records rollback URLs before
+  updating message entities.
+- Replaced the firmware's single-photo buffer with a two-slot LRU cache. The
+  device keeps 20 message metadata records but downloads non-cached images over
+  Wi-Fi and limits each JPEG to 512KB.
+- Built credential-free firmware v1.2.0 at 68% flash and 21% RAM. Confirmed all
+  four local provisioning values are absent. ESP image validation digest:
+  `f601ca5a6bab6f3621e138c663dafb854caa8c5fc222ead3470168f3566946c7`.
+- Deployed the web/API release and migrated all four existing photo records.
+  The migration created four immutable derivatives, retained every original,
+  and reduced stored bytes from 44,690 to 18,601 (58.4%).
+- The initial Windows SWA deployment packaged only Sharp's Windows ARM64
+  native binary, causing `/api/messages` to return HTTP 500. Added the Linux
+  x64 Sharp/libvips runtime to the deployment bundle, redeployed, and verified
+  unauthenticated HTTP 401 plus authenticated device HTTP 200 behavior.
+- Uploaded and activated OTA v1.2.0. Serial observed download progress through
+  100%, SHA-256 verification, reboot, version confirmation, a 2,049-byte photo
+  download, and successful history loading without HTTP 500 responses.
+- Physical testing confirmed photo orientation and proportions were correct and all three
+  button gestures worked. Corrected the misleading control legend so BACK uses
+  a double arrow with `2X BACK`, HOLD says `HOLD 1S`, and NEXT uses a single
+  arrow with `1X NEXT`.
+- Published OTA v1.2.1 with image digest
+  `db922147a75327c38145aec42d4940ef97c57af22a4caa5a976c280bcc6c57a6`.
+  Serial verified 100% download, digest verification, reboot, Wi-Fi
+  reconnection, message-history loading, and version 1.2.1 confirmation.
+- Connected the SparkFun 3.7V 850mAh LiPo after verifying red-to-VBAT and
+  black-to-GND polarity. The yellow charger LED illuminated, USB serial showed
+  no reset or brownout, and the display remained powered when USB-C was
+  disconnected.
+- USB testing found a real button defect: a quick tap was initially measured as
+  a 270,584 ms hold because unmatched press and click queue ages were paired.
+  Firmware v1.2.2 added stale-event resynchronization, reconstructed click
+  timestamps, and explicit NEXT/BACK/MARK READ logs.
+- Verified v1.2.2 over USB: single press measured 174 ms and moved 4/5 to 5/5;
+  one-second hold measured 1,440 ms, marked the message read, and changed
+  unread count from one to zero.
+- A normal double press measured 707 ms, outside the original 350 ms window.
+  Firmware v1.2.3 widened the window to 750 ms. Final USB validation selected
+  BACK and moved 5/5 to 4/5.
+
+### 2026-09-17 (Thu) — Public v1.2.5 Build
+
+- Advanced the integrated firmware source to v1.2.5 with the landscape
+  floating-hearts screensaver and photo prefetch before notification.
+- Compiled a credential-free ESP32-C5 release using Espressif core 3.3.11 and
+  the Minimal SPIFFS OTA partition.
+- Build result: 1,359,133 bytes of program storage (69%) and 71,564 bytes of
+  dynamic memory (21%).
+- Release binary size: 1,359,280 bytes.
+- Release SHA-256:
+  `613b6bc3219ce74f4dc39a4564869f9929fb80bd827f8d2fd5d3a1d003bb0e51`.
+- Verified the ESP32-C5 image checksum and validation hash.
+- Scanned the compiled binary against all local provisioning values and
+  private build-path markers; none were embedded.
+- The v1.2.5 binary is build-verified but has not yet been installed on the
+  physical mailbox or validated through an OTA update.
 
 ### 2026-08-24 (Mon) — Evening
 

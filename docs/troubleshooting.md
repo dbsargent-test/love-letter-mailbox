@@ -36,8 +36,14 @@
 3. **Offset issue:** Some 2.0" displays have a pixel offset. The firmware includes offset correction — if your display looks shifted, adjust `TFT_ROWSTART` and `TFT_COLSTART`.
 
 ### Photos look wrong
-1. **File size:** Photos are resized to 240×320 in the browser before upload. If they look distorted, clear your browser cache and try again.
-2. **Memory:** The ESP32-C5 has 8MB PSRAM, which should handle any photo. If you see memory errors in the serial console, report it as a bug.
+1. **Orientation:** Photos are fitted inside 216×160 with one proportional
+   scale factor. Portrait remains portrait and landscape remains landscape;
+   blank space around an image is expected and prevents cropping.
+2. **Old photo:** Run the photo migration dry run to identify blobs created
+   before server-side normalization.
+3. **Memory:** The device caches at most two JPEGs and rejects downloads larger
+   than 512KB. Check serial output for a rejected content length or allocation
+   failure.
 
 ---
 

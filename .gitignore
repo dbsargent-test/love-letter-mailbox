@@ -1,3 +1,8 @@
 node_modules/
 .env
 *.log
+firmware/**/secrets.h
+firmware/**/build/
+message-photo-migration-*.json
+local/
+enclosure/stl/*.3mf
