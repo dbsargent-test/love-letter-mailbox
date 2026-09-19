@@ -69,10 +69,34 @@ Current firmware running from ota_0
 
 ### 1. Compile New Firmware
 
-In Arduino IDE:
-- Make your code changes
-- **Sketch → Export Compiled Binary**
-- This creates a `.bin` file in the sketch folder
+Use the policy-compatible repository helper from the repo root. The OTA build
+must use the Minimal SPIFFS partition and should redact local source paths from
+the binary:
+
+```powershell
+$build = "C:\Temp\mailbox-firmware-build-vNEXT"
+$map = "-ffile-prefix-map=C:\Users\dosarge=."
+$props = @(
+  "compiler.c.extra_flags=$map",
+  "compiler.cpp.extra_flags=$map",
+  "compiler.S.extra_flags=$map"
+)
+
+.\scripts\esp32c5-toolchain.ps1 `
+  -Action Compile `
+  -SketchDirectory .\firmware\mailbox_firmware `
+  -BuildPath $build `
+  -Fqbn "esp32:esp32:sparkfun_esp32c5_thing_plus:PartitionScheme=min_spiffs" `
+  -ExtraBuildProperty $props
+```
+
+The OTA application binary is:
+
+```text
+$build\mailbox_firmware.ino.bin
+```
+
+Do **not** upload the merged 8 MB image for OTA.
 
 ### 2. Upload to Azure Blob Storage
 
@@ -81,8 +105,8 @@ In Arduino IDE:
 az storage blob upload \
   --account-name <your-storage-account> \
   --container-name firmware \
-  --name firmware-1.2.5.bin \
-  --file ./build/mailbox.ino.bin \
+  --name firmware-<version>.bin \
+  --file <build-path>/mailbox_firmware.ino.bin \
   --overwrite
 ```
 
@@ -90,22 +114,41 @@ Or upload via the Azure Portal: Storage Account → Containers → firmware → 
 
 ### 3. Update Version Metadata
 
-Update the firmware version in Azure Table Storage (or a simple JSON file in Blob Storage):
+The device endpoint is controlled by Static Web App app settings, not by a
+firmware metadata table. The critical hash is the **ESP image validation hash**,
+not the raw file SHA-256.
 
-```json
-{
-  "version": "1.2.5",
-  "url": "https://<account>.blob.core.windows.net/firmware/firmware-1.2.5.bin",
-  "sha256": "abc123...",
-  "releaseNotes": "Added emoji support"
-}
+Get the correct validation hash with:
+
+```powershell
+python -m esptool image-info "<build-path>\mailbox_firmware.ino.bin"
+```
+
+Use the `Validation hash: ... (valid)` value from the output. Do **not** use
+`Get-FileHash` for `FIRMWARE_SHA256`; the firmware verifies OTA with
+`esp_partition_get_sha256(updatePartition)`, which matches the ESP image
+validation hash, not the raw `.bin` file hash.
+
+Update the Static Web App metadata:
+
+```powershell
+az staticwebapp appsettings set `
+  --name love-letter-app `
+  --resource-group love-letter-mailbox `
+  --setting-names `
+    FIRMWARE_RELEASE_ENABLED=true `
+    FIRMWARE_VERSION=<version> `
+    FIRMWARE_BLOB_NAME=firmware-<version>.bin `
+    FIRMWARE_SHA256=<ESP image validation hash> `
+    FIRMWARE_RELEASE_NOTES="<short release note>"
 ```
 
 ### 4. Wait
 
 The ESP32 checks for updates:
 - On every boot
-- Every 15 minutes while running
+- Every 15 minutes while running in normal release builds
+- Every 2 minutes in temporary test builds such as v1.2.7+
 
 Within 15 minutes, the device will check for an update. Reboot the device to
 trigger an earlier check after Wi-Fi reconnects.
@@ -121,7 +164,12 @@ ESP32 bootloader can return to the previous OTA partition. Wi-Fi connectivity
 is retried independently and is not currently part of the confirmation gate.
 
 ### Checksum Verification
-Before installing, the firmware verifies the SHA-256 hash of the downloaded binary against the expected hash from the version metadata. If they don't match (corrupted download), the update is aborted.
+Before installing, the firmware verifies the downloaded OTA partition with
+`esp_partition_get_sha256(updatePartition)` against `FIRMWARE_SHA256` from the
+version metadata. That value must be the ESP image validation hash reported by
+`python -m esptool image-info`, not the raw `.bin` file SHA-256. If the wrong
+hash type is published, the mailbox shows `OTA verification failed` and remains
+on the previous firmware version.
 
 ### Incremental Updates Only
 The ESP32 only updates if the server version is **newer** than the local version. This prevents update loops and unnecessary reboots.

@@ -1,21 +1,27 @@
 # 2026-09-17
-# Feature: landscape TFT, two-minute floating-hearts screensaver, and image
-# prefetch before notification so the first reveal does not wait on download.
+# Feature: rotated TFT, two-minute floating-hearts screensaver, and bounded
+# queued-image prefetch before notification so button reveal does not wait on
+# download.
 
 $ErrorActionPreference = "Stop"
 $firmwarePath = Join-Path $PSScriptRoot "..\..\firmware\mailbox_firmware\mailbox_firmware.ino"
 $firmware = Get-Content -LiteralPath $firmwarePath -Raw
 
 $requiredPatterns = @(
-  'display.setRotation(1);',
+  'display.setRotation(3);',
   'constexpr unsigned long SCREENSAVER_DELAY_MS = 2UL * 60UL * 1000UL;',
+  'constexpr unsigned long OTA_CHECK_INTERVAL_MS = 15UL * 60UL * 1000UL;',
+  'constexpr size_t PHOTO_CACHE_SLOTS = 4;',
+  'constexpr size_t MIN_FREE_PSRAM_BYTES = 512UL * 1024UL;',
   'void drawScreensaverStatic()',
   'void drawScreensaverFrame()',
   'bool heartFrameDrawn = false;',
+  'if (NAVIGATION_ENABLED) showScreensaver();',
   'void revealMessageFromScreensaver()',
-  'messageRevealedFromScreensaver = !messages[currentIndex].read;',
-  'Button action: MARK REVEALED MESSAGE READ',
-  'prefetchPhoto(messages[newMessageIndex]);'
+  'apiBaseUrl + "/api/messages?unread=true&page=0&pageSize="',
+  'void prefetchQueuedPhotos()',
+  'hasPhotoCacheHeadroom(bufferSize)',
+  'prefetchQueuedPhotos();'
 )
 
 foreach ($pattern in $requiredPatterns) {
@@ -24,10 +30,10 @@ foreach ($pattern in $requiredPatterns) {
   }
 }
 
-$prefetch = $firmware.IndexOf('prefetchPhoto(messages[newMessageIndex]);')
+$prefetch = $firmware.IndexOf('prefetchQueuedPhotos();', $firmware.IndexOf('void pollMessages()'))
 $notify = $firmware.IndexOf('playNotification();', $prefetch)
 if ($prefetch -lt 0 -or $notify -lt 0 -or $prefetch -gt $notify) {
-  throw "New-message notification must occur after photo prefetch."
+  throw "New-message notification must occur after queued photo prefetch."
 }
 
 $frameStart = $firmware.IndexOf('void drawScreensaverFrame()')

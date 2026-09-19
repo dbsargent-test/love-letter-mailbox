@@ -66,6 +66,19 @@ smoke test at 324,384 bytes of program storage (24%) and 18,284 bytes of
 dynamic memory (5%). The servo test was uploaded with installed Python and
 esptool; every flash region passed hash verification.
 
+### OTA Hash Rule
+
+For OTA releases, `FIRMWARE_SHA256` must be the **ESP image validation hash**
+from:
+
+```powershell
+python -m esptool image-info "<build-path>\mailbox_firmware.ino.bin"
+```
+
+Do not use `Get-FileHash` or the raw `.bin` SHA-256 for OTA metadata. The
+firmware checks the OTA partition with `esp_partition_get_sha256`, which
+matches the validation hash reported by `esptool image-info`.
+
 ### Board and Port
 
 - **Board:** SparkFun ESP32-C5 Thing Plus
@@ -155,24 +168,32 @@ Qwiic chain.
 validation through the ESP-IDF root certificate bundle; it does not use an
 insecure TLS mode.
 
-### Vertical-Slice Acceptance Test
+### Queue-Mode Acceptance Test
 
 1. Send a text message to the mailbox from the web app.
 2. Confirm the landscape display enters the animated floating-hearts
    screensaver after two minutes without a button interaction. Confirm the
    central panel remains stable without full-screen blinking while the hearts
    move along its sides.
-3. Send a photo message while the screensaver is active. Confirm the buzzer
-   sounds only after the image has been prefetched and the screensaver remains
-   visible.
-4. Press the button once and confirm the cached message appears immediately
-   without being marked read.
-5. Press the button again and confirm the revealed message is marked read.
-6. Cover and uncover the light sensor and confirm the backlight changes.
-7. Press the Qwiic button.
-8. Confirm the message is marked read and is not returned by the next poll.
+3. Send a photo message while the screensaver is active. Confirm the playful
+   Qwiic buzzer notification sounds only after queued image prefetch is
+   attempted, and the screensaver remains visible.
+4. Press the button once and confirm the cached current message appears
+   immediately without being marked read.
+5. Press the button again and confirm the message is marked read, removed from
+   ESP memory, and the next queued unread message appears immediately.
+6. If there are no queued unread messages, confirm the display returns to the
+   idle state, the red Qwiic Button LED turns off, and the servo flag lowers.
+7. Cover and uncover the light sensor and confirm the backlight changes.
 
-The servo remains disconnected throughout this test.
+The physical button intentionally has no back-scroll, double-click, or
+long-press behavior. Every non-screensaver press means read the current message
+and advance the unread queue.
+
+The Qwiic buzzer is a tone generator, not an audio playback device. Firmware
+v1.2.6 uses an original playful multi-beep arrival pattern; spoken phrases or
+character-voice laughs would require different audio hardware and licensed
+audio assets.
 
 ## Photo Rendering
 
@@ -181,8 +202,9 @@ preserving the source aspect ratio and portrait/landscape orientation. The
 firmware centers the image in the display region without cropping or
 stretching.
 
-The ESP32 retains message metadata for up to 20 messages but caches image bytes
-for at most two messages. Images outside those two LRU cache slots are
-downloaded over authenticated HTTPS when opened. Each downloaded JPEG is
-limited to 512KB; an unavailable or invalid image produces a visible fallback
-instead of exhausting memory or crashing.
+The ESP32 polls only the unread queue and retains metadata for up to 20 queued
+unread messages. It caches image bytes for at most four messages using LRU
+eviction, reserves internal heap and PSRAM headroom before each allocation, and
+evicts a message's cached image immediately after that message is marked read.
+Each downloaded JPEG is limited to 512KB; an unavailable or invalid image
+produces a visible fallback instead of exhausting memory or crashing.

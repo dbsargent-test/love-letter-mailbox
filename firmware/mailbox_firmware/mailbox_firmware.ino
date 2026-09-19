@@ -24,7 +24,7 @@
 #ifdef OTA_DEMO_BOOTSTRAP
 #define FIRMWARE_VERSION "1.0.0"
 #else
-#define FIRMWARE_VERSION "1.2.5"
+#define FIRMWARE_VERSION "1.2.10"
 #endif
 
 #ifdef OTA_DEMO_BOOTSTRAP
@@ -37,13 +37,21 @@ constexpr uint8_t TFT_CS = 6;
 constexpr uint8_t TFT_DC = 5;
 constexpr uint8_t TFT_RST = 4;
 constexpr uint8_t TFT_LITE = 3;
+constexpr uint8_t SERVO_PIN = 1;
 constexpr uint8_t BUTTON_ADDRESS = 0x6F;
 constexpr uint8_t LIGHT_ADDRESS = 0x48;
 constexpr uint8_t BUZZER_ADDRESS = 0x34;
+constexpr uint32_t SERVO_FREQUENCY_HZ = 50;
+constexpr uint8_t SERVO_RESOLUTION_BITS = 16;
+constexpr uint16_t SERVO_FLAG_DOWN_US = 850;
+constexpr uint16_t SERVO_FLAG_UP_US = 2150;
+constexpr unsigned long SERVO_HOLD_MS = 600;
 
 constexpr size_t MAX_MESSAGES = 20;
-constexpr size_t PHOTO_CACHE_SLOTS = 2;
+constexpr size_t PHOTO_CACHE_SLOTS = 4;
 constexpr size_t MAX_PHOTO_BYTES = 512UL * 1024UL;
+constexpr size_t MIN_FREE_INTERNAL_HEAP_BYTES = 64UL * 1024UL;
+constexpr size_t MIN_FREE_PSRAM_BYTES = 512UL * 1024UL;
 constexpr int16_t PHOTO_LEFT = 8;
 constexpr int16_t PHOTO_TOP = 40;
 constexpr int16_t PHOTO_MAX_WIDTH = 216;
@@ -53,8 +61,6 @@ constexpr unsigned long LIGHT_INTERVAL_MS = 1000;
 constexpr unsigned long SCREENSAVER_DELAY_MS = 2UL * 60UL * 1000UL;
 constexpr unsigned long SCREENSAVER_FRAME_MS = 120;
 constexpr unsigned long WIFI_RETRY_MAX_MS = 60000;
-constexpr unsigned long DOUBLE_PRESS_MS = 750;
-constexpr unsigned long LONG_PRESS_MS = 1000;
 constexpr uint32_t MAX_VALID_PRESS_MS = 10000;
 constexpr unsigned long OTA_INITIAL_DELAY_MS = 20000;
 constexpr unsigned long OTA_CHECK_INTERVAL_MS = 15UL * 60UL * 1000UL;
@@ -99,12 +105,12 @@ int currentIndex = -1;
 int unreadCount = 0;
 bool historyLoaded = false;
 bool screensaverActive = false;
-bool messageRevealedFromScreensaver = false;
-
-bool clickPending = false;
-uint32_t firstClickTimestamp = 0;
-unsigned long clickPendingSince = 0;
 int previousLedUnreadCount = -1;
+bool servoAttached = false;
+bool flagRaised = false;
+bool flagStateKnown = false;
+bool servoDetachPending = false;
+unsigned long servoDetachAt = 0;
 
 unsigned long lastPollAt = 0;
 unsigned long lastLightAt = 0;
@@ -117,8 +123,11 @@ unsigned long lastScreensaverFrameAt = 0;
 uint32_t screensaverFrame = 0;
 bool initialOtaCheckComplete = false;
 PhotoCacheSlot photoCache[PHOTO_CACHE_SLOTS] = {};
+MailMessage lastDisplayedMessage;
+bool hasLastDisplayedMessage = false;
 
 bool renderPhoto(const MailMessage &message);
+int findOldestUnreadIndex();
 
 int drawJpegBlock(JPEGDRAW *draw) {
   display.drawRGBBitmap(draw->x, draw->y, draw->pPixels, draw->iWidth,
@@ -261,7 +270,6 @@ void drawScreensaverFrame() {
 
 void showScreensaver() {
   screensaverActive = true;
-  messageRevealedFromScreensaver = false;
   screensaverFrame = 0;
   heartFrameDrawn = false;
   drawScreensaverStatic();
@@ -282,42 +290,24 @@ void drawUnreadBadge() {
   display.print(badge);
 }
 
-void drawBackIcon(int16_t centerX, int16_t centerY) {
-  for (int16_t offset = 0; offset <= 10; offset += 10) {
-    display.drawLine(centerX + offset, centerY - 8, centerX - 8 + offset,
-                     centerY, ST77XX_WHITE);
-    display.drawLine(centerX - 8 + offset, centerY, centerX + offset,
-                     centerY + 8, ST77XX_WHITE);
+void drawReadControlBar(bool read) {
+  const uint16_t background = read ? ST77XX_GREEN : ST77XX_BLUE;
+  display.fillRect(0, 208, 320, 32, background);
+  display.setTextColor(read ? ST77XX_BLACK : ST77XX_WHITE, background);
+  display.setTextSize(2);
+  if (read) {
+    display.setCursor(104, 216);
+    display.print("READ");
+  } else {
+    display.setCursor(28, 216);
+    display.print("PRESS TO READ");
   }
-}
-
-void drawNextIcon(int16_t centerX, int16_t centerY) {
-  display.drawLine(centerX - 8, centerY - 8, centerX, centerY, ST77XX_WHITE);
-  display.drawLine(centerX, centerY, centerX - 8, centerY + 8, ST77XX_WHITE);
-}
-
-void drawHoldIcon(int16_t centerX, int16_t centerY) {
-  display.drawCircle(centerX, centerY, 10, ST77XX_WHITE);
-  display.drawLine(centerX - 5, centerY, centerX - 1, centerY + 4,
-                   ST77XX_WHITE);
-  display.drawLine(centerX - 1, centerY + 4, centerX + 6, centerY - 5,
-                   ST77XX_WHITE);
-}
-
-void drawControlBar() {
-  display.fillRect(0, 208, 320, 32, ST77XX_BLUE);
-  display.setTextColor(ST77XX_WHITE, ST77XX_BLUE);
-  display.setTextSize(1);
-  display.setCursor(12, 220);
-  display.print("2X BACK");
-  display.setCursor(126, 220);
-  display.print("HOLD READ");
-  display.setCursor(254, 220);
-  display.print("1X NEXT");
 }
 
 void showMessage(const MailMessage &message) {
   screensaverActive = false;
+  lastDisplayedMessage = message;
+  hasLastDisplayedMessage = true;
   display.fillScreen(ST77XX_WHITE);
 
   if (NAVIGATION_ENABLED && !message.read) {
@@ -361,7 +351,7 @@ void showMessage(const MailMessage &message) {
   }
 
   if (NAVIGATION_ENABLED) {
-    drawControlBar();
+    drawReadControlBar(message.read);
   } else {
     display.setTextColor(ST77XX_BLUE, ST77XX_WHITE);
     display.setTextSize(2);
@@ -374,24 +364,6 @@ void showError(const String &detail) {
   showStatus(ST77XX_RED, ST77XX_WHITE, "CONNECTION ERROR", detail);
 }
 
-void showEdgeCue(const char *label) {
-  if (currentIndex >= 0) showMessage(messages[currentIndex]);
-  display.fillRect(86, 184, 148, 18, ST77XX_YELLOW);
-  display.setTextColor(ST77XX_BLACK, ST77XX_YELLOW);
-  display.setTextSize(1);
-  display.setCursor(98, 189);
-  display.print(label);
-}
-
-void showAcknowledged() {
-  if (currentIndex >= 0) showMessage(messages[currentIndex]);
-  display.fillRect(86, 184, 148, 18, ST77XX_GREEN);
-  display.setTextColor(ST77XX_BLACK, ST77XX_GREEN);
-  display.setTextSize(1);
-  display.setCursor(119, 189);
-  display.print("MARKED READ");
-}
-
 void playTone(uint16_t durationMs, uint8_t volume) {
   buzzer.configureBuzzer(SFE_QWIIC_BUZZER_RESONANT_FREQUENCY, durationMs,
                          volume);
@@ -399,7 +371,70 @@ void playTone(uint16_t durationMs, uint8_t volume) {
 }
 
 void playNotification() {
-  playTone(150, SFE_QWIIC_BUZZER_VOLUME_MID);
+  const uint16_t patternMs[] = {90, 90, 180, 55, 55, 55, 140};
+  const uint8_t volumes[] = {
+      SFE_QWIIC_BUZZER_VOLUME_LOW, SFE_QWIIC_BUZZER_VOLUME_MID,
+      SFE_QWIIC_BUZZER_VOLUME_MAX, SFE_QWIIC_BUZZER_VOLUME_LOW,
+      SFE_QWIIC_BUZZER_VOLUME_LOW, SFE_QWIIC_BUZZER_VOLUME_MID,
+      SFE_QWIIC_BUZZER_VOLUME_MAX,
+  };
+  for (size_t i = 0; i < sizeof(patternMs) / sizeof(patternMs[0]); ++i) {
+    playTone(patternMs[i], volumes[i]);
+    delay(patternMs[i] + 35);
+  }
+}
+
+uint32_t pulseToDuty(uint16_t pulseUs) {
+  constexpr uint32_t PERIOD_US = 20000;
+  constexpr uint32_t MAX_DUTY = (1UL << SERVO_RESOLUTION_BITS) - 1;
+  return (static_cast<uint32_t>(pulseUs) * MAX_DUTY) / PERIOD_US;
+}
+
+bool attachServo() {
+  if (servoAttached) return true;
+  pinMode(SERVO_PIN, OUTPUT);
+  digitalWrite(SERVO_PIN, LOW);
+  servoAttached =
+      ledcAttach(SERVO_PIN, SERVO_FREQUENCY_HZ, SERVO_RESOLUTION_BITS);
+  if (!servoAttached) {
+    Serial.println("Servo PWM setup failed on IO1.");
+  }
+  return servoAttached;
+}
+
+void detachServo() {
+  if (servoAttached) {
+    ledcDetach(SERVO_PIN);
+    servoAttached = false;
+  }
+  pinMode(SERVO_PIN, OUTPUT);
+  digitalWrite(SERVO_PIN, LOW);
+  servoDetachPending = false;
+}
+
+void moveFlag(bool raise) {
+  if (!attachServo()) return;
+  const uint16_t pulse = raise ? SERVO_FLAG_UP_US : SERVO_FLAG_DOWN_US;
+  ledcWrite(SERVO_PIN, pulseToDuty(pulse));
+  flagRaised = raise;
+  flagStateKnown = true;
+  servoDetachPending = true;
+  servoDetachAt = millis() + SERVO_HOLD_MS;
+  Serial.printf("Flag servo: %s (%u us)\n", raise ? "UP" : "DOWN", pulse);
+}
+
+void updateFlagState() {
+  const bool shouldRaise = unreadCount > 0;
+  if (!flagStateKnown || shouldRaise != flagRaised) {
+    moveFlag(shouldRaise);
+  }
+}
+
+void maintainServo() {
+  if (servoDetachPending &&
+      static_cast<long>(millis() - servoDetachAt) >= 0) {
+    detachServo();
+  }
 }
 
 uint8_t brightnessForLux(long lux) {
@@ -510,6 +545,11 @@ PhotoCacheSlot *findPhotoCacheSlot(const String &messageId) {
   return nullptr;
 }
 
+void releasePhotoForMessage(const String &messageId) {
+  PhotoCacheSlot *slot = findPhotoCacheSlot(messageId);
+  if (slot != nullptr) releasePhotoCacheSlot(*slot);
+}
+
 PhotoCacheSlot &selectPhotoCacheSlot() {
   for (size_t i = 0; i < PHOTO_CACHE_SLOTS; ++i) {
     if (photoCache[i].data == nullptr) return photoCache[i];
@@ -528,9 +568,27 @@ PhotoCacheSlot &selectPhotoCacheSlot() {
   return photoCache[oldestIndex];
 }
 
+bool hasPhotoCacheHeadroom(size_t bufferSize) {
+  const size_t internalFree = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+  if (internalFree < MIN_FREE_INTERNAL_HEAP_BYTES) {
+    Serial.printf("Photo cache skipped: internal heap low (%u bytes).\n",
+                  static_cast<unsigned>(internalFree));
+    return false;
+  }
+
+  const size_t psramFree = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+  if (psramFree > 0 && psramFree < bufferSize + MIN_FREE_PSRAM_BYTES) {
+    Serial.printf("Photo cache skipped: PSRAM low (%u bytes free).\n",
+                  static_cast<unsigned>(psramFree));
+    return false;
+  }
+  return true;
+}
+
 bool downloadPhoto(const MailMessage &message, PhotoCacheSlot *&resultSlot) {
   resultSlot = findPhotoCacheSlot(message.id);
   if (resultSlot != nullptr) return true;
+  if (message.photoUrl.isEmpty()) return true;
 
   esp_http_client_config_t config = {};
   config.url = message.photoUrl.c_str();
@@ -561,6 +619,12 @@ bool downloadPhoto(const MailMessage &message, PhotoCacheSlot *&resultSlot) {
   }
 
   const size_t bufferSize = static_cast<size_t>(contentLength);
+  if (!hasPhotoCacheHeadroom(bufferSize)) {
+    esp_http_client_close(client);
+    esp_http_client_cleanup(client);
+    return false;
+  }
+
   PhotoCacheSlot &slot = selectPhotoCacheSlot();
   releasePhotoCacheSlot(slot);
   slot.data = static_cast<uint8_t *>(
@@ -665,6 +729,37 @@ bool prefetchPhoto(const MailMessage &message) {
   return downloaded;
 }
 
+void prefetchQueuedPhotos() {
+  size_t attempted = 0;
+  for (size_t i = 0; i < messageCount && attempted < PHOTO_CACHE_SLOTS; ++i) {
+    if (messages[i].read || messages[i].photoUrl.isEmpty()) continue;
+    attempted++;
+    if (!prefetchPhoto(messages[i])) break;
+  }
+}
+
+void removeLocalMessageAt(int index) {
+  if (index < 0 || index >= static_cast<int>(messageCount)) return;
+  const String removedId = messages[index].id;
+  releasePhotoForMessage(removedId);
+  for (size_t i = static_cast<size_t>(index); i + 1 < messageCount; ++i) {
+    messages[i] = messages[i + 1];
+  }
+  messageCount--;
+  currentIndex = findOldestUnreadIndex();
+  if (currentIndex < 0 && messageCount > 0) currentIndex = 0;
+  Serial.printf("Removed message %s from local queue; %u remain\n",
+                removedId.c_str(), static_cast<unsigned>(messageCount));
+}
+
+void showLastDisplayedOrIdle() {
+  if (hasLastDisplayedMessage) {
+    showMessage(lastDisplayedMessage);
+  } else {
+    showIdle();
+  }
+}
+
 int findMessageIndex(const String &id) {
   for (size_t i = 0; i < messageCount; ++i) {
     if (messages[i].id == id) return static_cast<int>(i);
@@ -679,19 +774,12 @@ int findOldestUnreadIndex() {
   return -1;
 }
 
-String newestUnreadId() {
-  for (int i = static_cast<int>(messageCount) - 1; i >= 0; --i) {
-    if (!messages[i].read) return messages[i].id;
-  }
-  return "";
-}
-
 bool fetchHistory(MailMessage *loadedMessages, size_t &loadedCount,
                   int &serverUnreadCount) {
   String response;
   int statusCode = 0;
   const String url =
-      apiBaseUrl + "/api/messages?page=0&pageSize=" +
+      apiBaseUrl + "/api/messages?unread=true&page=0&pageSize=" +
       String(MAX_MESSAGES);
 
   if (!performRequest(url, HTTP_METHOD_GET, response, statusCode)) return false;
@@ -714,7 +802,7 @@ bool fetchHistory(MailMessage *loadedMessages, size_t &loadedCount,
   serverUnreadCount = document["unreadCount"] | 0;
 
   for (size_t i = 0; i < loadedCount; ++i) {
-    JsonObject source = responseMessages[loadedCount - 1 - i];
+    JsonObject source = responseMessages[i];
     loadedMessages[i].id = source["id"] | "";
     loadedMessages[i].sender = source["sender"] | "Unknown";
     loadedMessages[i].text = source["text"] | "";
@@ -747,12 +835,9 @@ void pollMessages() {
   int serverUnreadCount = 0;
   const String previousCurrentId =
       currentIndex >= 0 ? messages[currentIndex].id : "";
-  const String previousNewestUnread = newestUnreadId();
   const int previousUnreadCount = unreadCount;
   const bool wasHistoryLoaded = historyLoaded;
   const size_t previousMessageCount = messageCount;
-  const bool previousCurrentRead =
-      currentIndex >= 0 ? messages[currentIndex].read : true;
 
   if (!fetchHistory(loadedMessages, loadedCount, serverUnreadCount)) {
     if (!historyLoaded) showError("Unable to reach mailbox service");
@@ -768,6 +853,7 @@ void pollMessages() {
   if (messageCount == 0) {
     currentIndex = -1;
     historyLoaded = true;
+    prefetchQueuedPhotos();
     if (!screensaverActive &&
         (!wasHistoryLoaded || previousMessageCount != messageCount)) {
       showIdle();
@@ -780,34 +866,23 @@ void pollMessages() {
     currentIndex = preservedIndex;
   } else {
     currentIndex = findOldestUnreadIndex();
-    if (currentIndex < 0) currentIndex = static_cast<int>(messageCount) - 1;
+    if (currentIndex < 0) currentIndex = 0;
   }
 
-  const String currentNewestUnread = newestUnreadId();
+  prefetchQueuedPhotos();
+
   const bool newUnreadArrived =
-      !currentNewestUnread.isEmpty() &&
-      (!wasHistoryLoaded || (currentNewestUnread != previousNewestUnread &&
-                             unreadCount > previousUnreadCount));
+      unreadCount > previousUnreadCount || previousMessageCount == 0;
 
   historyLoaded = true;
   const bool displayChanged =
       !wasHistoryLoaded || previousCurrentId != messages[currentIndex].id ||
-      previousCurrentRead != messages[currentIndex].read ||
       previousUnreadCount != unreadCount ||
       previousMessageCount != messageCount;
 
   if (newUnreadArrived) {
-    const int newMessageIndex = findMessageIndex(currentNewestUnread);
-    if (newMessageIndex >= 0) {
-      prefetchPhoto(messages[newMessageIndex]);
-    }
-    const int revealIndex = findOldestUnreadIndex();
-    if (revealIndex >= 0 && revealIndex != newMessageIndex) {
-      prefetchPhoto(messages[revealIndex]);
-    }
     playNotification();
-    Serial.printf("New unread message detected: %s\n",
-                  currentNewestUnread.c_str());
+    Serial.printf("Unread message queue updated: %d waiting\n", unreadCount);
   }
 
   if (displayChanged && !screensaverActive) {
@@ -819,53 +894,16 @@ void pollMessages() {
                 currentIndex + 1);
 }
 
-void moveForward() {
-  if (currentIndex < 0) return;
-  messageRevealedFromScreensaver = false;
-  if (currentIndex >= static_cast<int>(messageCount) - 1) {
-    showEdgeCue("NEWEST MESSAGE");
-    return;
-  }
-  currentIndex++;
-  showMessage(messages[currentIndex]);
-  Serial.printf("Moved forward to message %d of %u\n", currentIndex + 1,
-                static_cast<unsigned>(messageCount));
-}
-
-void moveBack() {
-  if (currentIndex < 0) return;
-  messageRevealedFromScreensaver = false;
-  if (currentIndex == 0) {
-    showEdgeCue("OLDEST MESSAGE");
-    return;
-  }
-  currentIndex--;
-  showMessage(messages[currentIndex]);
-  Serial.printf("Moved back to message %d of %u\n", currentIndex + 1,
-                static_cast<unsigned>(messageCount));
-}
-
-void advanceBootstrapToNextUnread() {
-  for (size_t offset = 1; offset <= messageCount; ++offset) {
-    const int candidate =
-        (currentIndex + static_cast<int>(offset)) % messageCount;
-    if (!messages[candidate].read) {
-      currentIndex = candidate;
-      showMessage(messages[currentIndex]);
-      return;
-    }
-  }
-  showMessage(messages[currentIndex]);
-}
-
 void acknowledgeCurrent() {
   if (currentIndex < 0) return;
-  messageRevealedFromScreensaver = false;
   if (messages[currentIndex].read) {
-    showEdgeCue("ALREADY READ");
+    currentIndex = findOldestUnreadIndex();
+    if (currentIndex >= 0) showMessage(messages[currentIndex]);
+    else showLastDisplayedOrIdle();
     return;
   }
 
+  const MailMessage acknowledgedMessage = messages[currentIndex];
   const String messageId = messages[currentIndex].id;
   if (WiFi.status() != WL_CONNECTED || !acknowledgeMessage(messageId)) {
     showError("Message was not acknowledged");
@@ -876,99 +914,48 @@ void acknowledgeCurrent() {
   unreadCount = max(0, unreadCount - 1);
   Serial.printf("Acknowledged message %s\n", messageId.c_str());
   playTone(70, SFE_QWIIC_BUZZER_VOLUME_LOW);
+  removeLocalMessageAt(currentIndex);
+  lastDisplayedMessage = acknowledgedMessage;
+  lastDisplayedMessage.read = true;
+  hasLastDisplayedMessage = true;
+  prefetchQueuedPhotos();
 
-  if (NAVIGATION_ENABLED) {
-    showAcknowledged();
-  } else {
-    advanceBootstrapToNextUnread();
-  }
+  if (currentIndex >= 0 && messageCount > 0) showMessage(messages[currentIndex]);
+  else showLastDisplayedOrIdle();
   lastPollAt = millis();
 }
 
 void revealMessageFromScreensaver() {
   screensaverActive = false;
   currentIndex = findOldestUnreadIndex();
-  if (currentIndex < 0 && messageCount > 0) {
-    currentIndex = static_cast<int>(messageCount) - 1;
-  }
 
   if (currentIndex >= 0) {
     showMessage(messages[currentIndex]);
-    messageRevealedFromScreensaver = !messages[currentIndex].read;
-    Serial.printf("Screensaver reveal: message %d of %u%s\n",
-                  currentIndex + 1, static_cast<unsigned>(messageCount),
-                  messageRevealedFromScreensaver ? " awaiting acknowledgement"
-                                                 : "");
+    Serial.printf("Screensaver reveal and read: message %d of %u\n",
+                  currentIndex + 1, static_cast<unsigned>(messageCount));
+    acknowledgeCurrent();
   } else {
-    showIdle();
-    messageRevealedFromScreensaver = false;
+    showLastDisplayedOrIdle();
   }
 }
 
 void handleSinglePress() {
-  if (NAVIGATION_ENABLED) {
-    if (messageRevealedFromScreensaver && currentIndex >= 0 &&
-        !messages[currentIndex].read) {
-      Serial.println("Button action: MARK REVEALED MESSAGE READ");
-      acknowledgeCurrent();
-      return;
-    }
-    Serial.println("Button action: NEXT");
-    moveForward();
-  } else {
-    Serial.println("Button action: MARK READ");
-    acknowledgeCurrent();
-  }
-}
-
-void handleDoublePress() {
-  if (NAVIGATION_ENABLED) {
-    Serial.println("Button action: BACK");
-    moveBack();
-  }
-}
-
-void handleLongPress() {
-  if (NAVIGATION_ENABLED) {
-    Serial.println("Button action: MARK READ");
-    acknowledgeCurrent();
-  }
+  Serial.println("Button action: MARK READ AND ADVANCE");
+  acknowledgeCurrent();
 }
 
 void processCompletedPress(uint32_t pressAge, uint32_t clickAge) {
   const uint32_t heldFor = pressAge - clickAge;
-  const uint32_t clickOccurredAt = millis() - clickAge;
   lastUserInteractionAt = millis();
   Serial.printf("Button gesture: held %lu ms\n",
                 static_cast<unsigned long>(heldFor));
 
   if (screensaverActive) {
-    clickPending = false;
     revealMessageFromScreensaver();
     return;
   }
 
-  if (heldFor >= LONG_PRESS_MS) {
-    clickPending = false;
-    handleLongPress();
-    return;
-  }
-
-  const uint32_t clickSeparation = clickOccurredAt - firstClickTimestamp;
-  if (clickPending) {
-    Serial.printf("Button double-click separation: %lu ms\n",
-                  static_cast<unsigned long>(clickSeparation));
-  }
-  if (clickPending && clickSeparation <= DOUBLE_PRESS_MS) {
-    clickPending = false;
-    handleDoublePress();
-    return;
-  }
-
-  if (clickPending) handleSinglePress();
-  clickPending = true;
-  firstClickTimestamp = clickOccurredAt;
-  clickPendingSince = millis();
+  handleSinglePress();
 }
 
 void handleButton() {
@@ -1001,10 +988,6 @@ void handleButton() {
     processCompletedPress(poppedPressAge, poppedClickAge);
   }
 
-  if (clickPending && millis() - clickPendingSince > DOUBLE_PRESS_MS) {
-    clickPending = false;
-    handleSinglePress();
-  }
 }
 
 void updateScreensaver() {
@@ -1026,13 +1009,15 @@ void updateScreensaver() {
 void updateButtonLed() {
   const int targetUnreadCount =
       NAVIGATION_ENABLED && unreadCount > 0 ? unreadCount : 0;
-  if (targetUnreadCount == previousLedUnreadCount) return;
-  previousLedUnreadCount = targetUnreadCount;
-
   if (targetUnreadCount == 0) {
+    if (previousLedUnreadCount == 0) return;
     button.LEDoff();
+    previousLedUnreadCount = 0;
     return;
   }
+
+  if (targetUnreadCount == previousLedUnreadCount) return;
+  previousLedUnreadCount = targetUnreadCount;
   button.LEDconfig(120, 1200, 100, 20);
 }
 
@@ -1294,12 +1279,9 @@ void setup() {
 
   SPI.begin(SCK, MISO, MOSI, TFT_CS);
   display.init(240, 320);
-  display.setRotation(1);
+  display.setRotation(3);
 
-  if (NAVIGATION_ENABLED) {
-    showStatus(ST77XX_BLUE, ST77XX_WHITE, "NAVIGATION READY",
-               "Back, forward, and NEW cues");
-  } else {
+  if (!NAVIGATION_ENABLED) {
     showStatus(ST77XX_BLACK, ST77XX_CYAN, "OTA BOOTSTRAP",
                "Ready for wireless update");
   }
@@ -1319,12 +1301,14 @@ void setup() {
   }
 
   button.LEDoff();
+  detachServo();
   while (!button.isPressedQueueEmpty()) button.popPressedQueue();
   while (!button.isClickedQueueEmpty()) button.popClickedQueue();
   button.clearEventBits();
   confirmRunningImage();
   delay(1000);
   lastUserInteractionAt = millis();
+  if (NAVIGATION_ENABLED) showScreensaver();
 
   WiFi.mode(WIFI_STA);
   maintainWifi();
@@ -1334,6 +1318,8 @@ void loop() {
   maintainWifi();
   handleButton();
   updateButtonLed();
+  updateFlagState();
+  maintainServo();
 
   const unsigned long now = millis();
   if (now - lastLightAt >= LIGHT_INTERVAL_MS) {

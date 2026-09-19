@@ -12,7 +12,9 @@ param(
 
   [string]$Port = "COM4",
 
-  [string]$Fqbn = "esp32:esp32:sparkfun_esp32c5_thing_plus"
+  [string]$Fqbn = "esp32:esp32:sparkfun_esp32c5_thing_plus",
+
+  [string[]]$ExtraBuildProperty = @()
 )
 
 $ErrorActionPreference = "Stop"
@@ -50,12 +52,19 @@ if ($Action -eq "Compile") {
     "`"$python`" `"$partitionTool`" %*"
   ) | Set-Content -LiteralPath $partitionWrapper -Encoding ascii
 
-  & $arduinoCli compile `
-    --fqbn $Fqbn `
-    --build-path $resolvedBuild `
-    --build-property "tools.esptool_py.path=$esptoolDirectory" `
-    --build-property "tools.gen_esp32part.cmd.windows=$partitionWrapper" `
-    $resolvedSketch
+  $compileArgs = @(
+    "compile",
+    "--fqbn", $Fqbn,
+    "--build-path", $resolvedBuild,
+    "--build-property", "tools.esptool_py.path=$esptoolDirectory",
+    "--build-property", "tools.gen_esp32part.cmd.windows=$partitionWrapper"
+  )
+  foreach ($property in $ExtraBuildProperty) {
+    $compileArgs += @("--build-property", $property)
+  }
+  $compileArgs += $resolvedSketch
+
+  & $arduinoCli @compileArgs
 
   if ($LASTEXITCODE -ne 0) {
     throw "ESP32-C5 compilation failed with exit code $LASTEXITCODE"

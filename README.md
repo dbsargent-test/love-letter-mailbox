@@ -166,7 +166,7 @@ MIT License — build one, sell one, modify it, do whatever you want.
 
 | Metric | Value |
 |--------|-------|
-| Current firmware source | **v1.2.5** |
+| Current firmware source | **v1.2.10** |
 | Original features replicated | 8 of 10 (80%) |
 | Features added beyond original | 9 |
 | Scope creep ratio | 0.9x |

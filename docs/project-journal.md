@@ -398,3 +398,56 @@ Ran 24 automated tests against production deployment — **22/24 passed:**
 | Monthly hosting | ~$0.02 | $0.02 | On target |
 | Time invested | — | ~5.5 hrs (afternoon: ~2.5h, evening: ~3h) | — |
 | **Total project cost** | | **~$114 + time** | |
+
+### 2026-09-19 (Sat) — ESP32-C5 Rotation, LED, and Servo Flag Build
+
+**Hardware target:** SparkFun ESP32-C5 Thing Plus on COM4.
+
+**Firmware outcome:**
+- Flashed the current integrated mailbox firmware once and verified esptool completed region verification and hard reset.
+- Rotated the TFT output 180 degrees for the physical mailbox installation by changing `display.setRotation(1)` to `display.setRotation(3)`.
+- Tightened Qwiic button LED behavior so a zero-unread state forces `button.LEDoff()` and prevents blinking after the last message is read.
+- Added SG90 flag servo control on IO1 using the previously validated quiet operating envelope:
+  - down pulse: 850 us
+  - up pulse: 2150 us
+  - 50 Hz, 16-bit PWM
+  - detach after 600 ms of movement hold to reduce jitter/buzzing
+- Recompiled successfully and flashed the integrated rotation/LED/servo build to COM4; esptool verified all flashed regions and hard-reset the device.
+
+**Open test reset:**
+- Doug requested deleting all messages / marking all as read so the clean zero-unread behavior can be tested.
+- Backend storage is Azure Table `messages` in storage account `lovelettermlbx`, resource group `love-letter-mailbox`.
+- Cleanup was not completed before the session/tooling became unreliable.
+- Next session should run the cleanup from `web/api` so `@azure/data-tables` resolves, set `STORAGE_ACCOUNT_NAME=lovelettermlbx` and a process-local `STORAGE_ACCOUNT_KEY` from Azure CLI, then delete all rows or mark all rows read without printing secrets.
+
+**Validation still needed:**
+- At zero unread: screen right-side up, Qwiic button LED off, servo flag down.
+- On new unread message: message displays, Qwiic button LED blinks, servo flag raises.
+- After marking read: Qwiic button LED turns off and servo flag lowers.
+- If physical servo direction is reversed, swap `SERVO_FLAG_DOWN_US` and `SERVO_FLAG_UP_US`, compile, and flash again.
+
+**V1 physical validation outcome:**
+- After the backend message table was cleared, the device reached zero unread and the red Qwiic Button LED turned off.
+- The servo-driven flag worked with the integrated firmware.
+- Treat V1 as complete as of 2026-09-19.
+
+**V2 improvement requirements captured from physical fit/use:**
+- Use a larger portrait-oriented screen.
+- Add a real speaker/audio playback path for MP3 or songs in addition to the Qwiic buzzer; the current buzzer can only play tones.
+- Rework screen and button placement because the Qwiic Button PCB interfered with the display cable.
+- Redesign the servo housing; the current servo fit was wrong.
+- Redesign the flag-to-servo interface; the flag did not mount correctly on the servo head.
+
+**OTA release lesson learned:**
+- OTA publishing worked only after `FIRMWARE_SHA256` was changed from the raw
+  `.bin` file SHA-256 to the ESP image validation hash reported by
+  `python -m esptool image-info`.
+- The firmware verifies OTA with `esp_partition_get_sha256(updatePartition)`,
+  so metadata must use the `Validation hash: ... (valid)` value from esptool.
+- A wrong hash type causes the mailbox to show a red OTA verification error and
+  remain on the previous firmware version.
+- Working v1.2.8 values:
+  - raw `.bin` SHA-256:
+    `ea351ce79be6f9a3a785195479c95b66aca8d531e97a2a0897f288fce59fb4d9`
+  - ESP image validation hash used in `FIRMWARE_SHA256`:
+    `9d291f47688472c237f85ace93b4f3c4ada9e33d87035c1b21f82e7de0ce1eaa`
