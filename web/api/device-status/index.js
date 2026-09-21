@@ -112,7 +112,7 @@ function requestBodyLength(value) {
   return 0;
 }
 
-function buildDiagnostics(req, body) {
+function buildDiagnostics(req, body, parseInfo) {
   const headers = (req && req.headers) || {};
   return {
     contentType: boundedString(headers["content-type"] || headers["Content-Type"], 120),
@@ -122,12 +122,16 @@ function buildDiagnostics(req, body) {
     rawBodyType: requestBodyType(req && req.rawBody),
     rawBodyLength: requestBodyLength(req && req.rawBody),
     parsedFieldCount: Object.keys(body).length,
+    parseError: boundedString(parseInfo.error, 120),
+    bodyPrefix: boundedString(parseInfo.candidate, 160),
   };
 }
 
 function parseBody(req) {
   const body = req && req.body;
-  if (body && typeof body === "object") return body;
+  if (body && typeof body === "object") {
+    return { body, info: { candidate: "", error: "" } };
+  }
 
   const candidate =
     typeof body === "string" && body.trim()
@@ -138,12 +142,21 @@ function parseBody(req) {
           ? req.rawBody.toString("utf8")
           : "";
 
-  if (!candidate) return {};
+  if (!candidate) return { body: {}, info: { candidate: "", error: "empty" } };
   try {
     const parsed = JSON.parse(candidate);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
+    return {
+      body: parsed && typeof parsed === "object" ? parsed : {},
+      info: { candidate, error: "" },
+    };
+  } catch (error) {
+    return {
+      body: {},
+      info: {
+        candidate,
+        error: error && error.message ? error.message : "parse failed",
+      },
+    };
   }
 }
 
@@ -170,8 +183,9 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const body = parseBody(req);
-  const diagnostics = buildDiagnostics(req, body);
+  const parsed = parseBody(req);
+  const body = parsed.body;
+  const diagnostics = buildDiagnostics(req, body, parsed.info);
   const receivedAt = new Date().toISOString();
   const statusTable = getTableClient(account, key, "deviceStatus");
   const eventsTable = getTableClient(account, key, "deviceEvents");

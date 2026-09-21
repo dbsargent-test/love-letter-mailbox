@@ -39,6 +39,8 @@ $endpointPatterns = @(
   'await eventsTable.createEntity(buildEventEntity(device, body, receivedAt, diagnostics))',
   'status_post_empty',
   'parsedFieldCount',
+  'parseError',
+  'bodyPrefix',
   'requestBodyType',
   'function parseBody(req)',
   'req.rawBody',
