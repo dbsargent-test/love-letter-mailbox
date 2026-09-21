@@ -444,6 +444,13 @@ Ran 24 automated tests against production deployment — **22/24 passed:**
 - Redesign the servo housing; the current servo fit was wrong.
 - Redesign the flag-to-servo interface; the flag did not mount correctly on the servo head.
 
+**V2 decisions to lock later:**
+- Exact Hall-effect sensor part and magnet placement.
+- Exact larger LiPo capacity and battery bay dimensions.
+- Final 2.8" TFT product/variant after purchase availability check.
+- Whether touch is used for archive/settings only or disabled entirely.
+- Final enclosure speaker vent/acoustic chamber geometry after speaker selection.
+
 **OTA release lesson learned:**
 - OTA publishing worked only after `FIRMWARE_SHA256` was changed from the raw
   `.bin` file SHA-256 to the ESP image validation hash reported by
