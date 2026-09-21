@@ -199,7 +199,9 @@ The firmware logs OTA activity to the serial console:
 [OTA] Install complete. Rebooting...
 ```
 
-If the device is remote and you can't access serial, consider adding OTA status reporting back to Azure (POST /api/device-status with version, uptime, battery level).
+If the device is remote and you can't access serial, the firmware posts heartbeat
+and OTA lifecycle telemetry to `POST /api/device/status`; the API stores the
+latest snapshot in `deviceStatus` and event history in `deviceEvents`.
 
 ---
 

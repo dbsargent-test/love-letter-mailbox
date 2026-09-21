@@ -24,7 +24,7 @@
 #ifdef OTA_DEMO_BOOTSTRAP
 #define FIRMWARE_VERSION "1.0.0"
 #else
-#define FIRMWARE_VERSION "1.2.10"
+#define FIRMWARE_VERSION "1.2.11"
 #endif
 
 #ifdef OTA_DEMO_BOOTSTRAP
@@ -64,6 +64,7 @@ constexpr unsigned long WIFI_RETRY_MAX_MS = 60000;
 constexpr uint32_t MAX_VALID_PRESS_MS = 10000;
 constexpr unsigned long OTA_INITIAL_DELAY_MS = 20000;
 constexpr unsigned long OTA_CHECK_INTERVAL_MS = 15UL * 60UL * 1000UL;
+constexpr unsigned long STATUS_INTERVAL_MS = 60UL * 1000UL;
 
 Adafruit_ST7789 display(&SPI, TFT_CS, TFT_DC, TFT_RST);
 QwiicButton button;
@@ -120,14 +121,22 @@ unsigned long wifiConnectedAt = 0;
 unsigned long lastOtaCheckAt = 0;
 unsigned long lastUserInteractionAt = 0;
 unsigned long lastScreensaverFrameAt = 0;
+unsigned long lastStatusAt = 0;
 uint32_t screensaverFrame = 0;
 bool initialOtaCheckComplete = false;
+bool bootStatusPending = true;
+bool otaConfirmedStatusPending = false;
 PhotoCacheSlot photoCache[PHOTO_CACHE_SLOTS] = {};
 MailMessage lastDisplayedMessage;
 bool hasLastDisplayedMessage = false;
+String bootId;
+int lastPollStatusCode = 0;
+String lastErrorCode;
 
 bool renderPhoto(const MailMessage &message);
 int findOldestUnreadIndex();
+void sendDeviceStatus(const char *eventName = nullptr,
+                      const String &detail = "");
 
 int drawJpegBlock(JPEGDRAW *draw) {
   display.drawRGBBitmap(draw->x, draw->y, draw->pPixels, draw->iWidth,
@@ -491,7 +500,8 @@ void maintainWifi() {
 }
 
 bool performRequest(const String &url, esp_http_client_method_t method,
-                    String &response, int &statusCode) {
+                    String &response, int &statusCode,
+                    const String &payload = "") {
   esp_http_client_config_t config = {};
   config.url = url.c_str();
   config.event_handler = collectHttpResponse;
@@ -508,9 +518,10 @@ bool performRequest(const String &url, esp_http_client_method_t method,
   esp_http_client_set_method(client, method);
   esp_http_client_set_header(client, "x-device-key", deviceKey.c_str());
   esp_http_client_set_header(client, "Accept", "application/json");
-  if (method == HTTP_METHOD_PATCH) {
+  if (method == HTTP_METHOD_PATCH || method == HTTP_METHOD_POST) {
     esp_http_client_set_header(client, "Content-Type", "application/json");
-    esp_http_client_set_post_field(client, "{}", 2);
+    const String body = payload.isEmpty() ? "{}" : payload;
+    esp_http_client_set_post_field(client, body.c_str(), body.length());
   }
 
   const esp_err_t result = esp_http_client_perform(client);
@@ -522,6 +533,90 @@ bool performRequest(const String &url, esp_http_client_method_t method,
     return false;
   }
   return true;
+}
+
+String resetReasonName() {
+  switch (esp_reset_reason()) {
+    case ESP_RST_POWERON:
+      return "poweron";
+    case ESP_RST_EXT:
+      return "external";
+    case ESP_RST_SW:
+      return "software";
+    case ESP_RST_PANIC:
+      return "panic";
+    case ESP_RST_INT_WDT:
+      return "interrupt_watchdog";
+    case ESP_RST_TASK_WDT:
+      return "task_watchdog";
+    case ESP_RST_WDT:
+      return "watchdog";
+    case ESP_RST_DEEPSLEEP:
+      return "deepsleep";
+    case ESP_RST_BROWNOUT:
+      return "brownout";
+    case ESP_RST_SDIO:
+      return "sdio";
+    default:
+      return "unknown";
+  }
+}
+
+String displayStateName() {
+  if (screensaverActive) return "screensaver";
+  if (currentIndex >= 0 && messageCount > 0) return "message";
+  if (historyLoaded) return "idle";
+  return "startup";
+}
+
+String currentMessageId() {
+  if (currentIndex >= 0 && currentIndex < static_cast<int>(messageCount)) {
+    return messages[currentIndex].id;
+  }
+  if (hasLastDisplayedMessage) return lastDisplayedMessage.id;
+  return "";
+}
+
+void sendDeviceStatus(const char *eventName, const String &detail) {
+  if (WiFi.status() != WL_CONNECTED || !wifiConfigured()) return;
+
+  JsonDocument document;
+  document["firmwareVersion"] = FIRMWARE_VERSION;
+  document["bootId"] = bootId;
+  document["uptimeMs"] = millis();
+  document["resetReason"] = resetReasonName();
+  document["wifiRssi"] = WiFi.RSSI();
+  document["freeHeap"] = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+  document["minFreeHeap"] = heap_caps_get_minimum_free_size(MALLOC_CAP_INTERNAL);
+  document["freePsram"] = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+  document["minFreePsram"] = heap_caps_get_minimum_free_size(MALLOC_CAP_SPIRAM);
+  document["displayState"] = displayStateName();
+  document["currentMessageId"] = currentMessageId();
+  document["unreadCount"] = unreadCount;
+  document["flagState"] = flagRaised ? "raised" : "lowered";
+  document["buttonLedState"] = previousLedUnreadCount > 0 ? "active" : "off";
+  document["lastPollStatus"] = lastPollStatusCode;
+  document["lastErrorCode"] = lastErrorCode;
+  if (eventName != nullptr && eventName[0] != '\0') {
+    document["event"] = eventName;
+    document["detail"] = detail;
+  }
+
+  String payload;
+  serializeJson(document, payload);
+
+  String response;
+  int statusCode = 0;
+  const String url = apiBaseUrl + "/api/device/status";
+  if (!performRequest(url, HTTP_METHOD_POST, response, statusCode, payload) ||
+      statusCode != 200) {
+    Serial.printf("Device status POST failed: HTTP %d %s\n", statusCode,
+                  response.c_str());
+    return;
+  }
+
+  Serial.printf("Device status sent%s%s\n", eventName ? ": " : "",
+                eventName ? eventName : "");
 }
 
 void releasePhotoCacheSlot(PhotoCacheSlot &slot) {
@@ -783,9 +878,11 @@ bool fetchHistory(MailMessage *loadedMessages, size_t &loadedCount,
       String(MAX_MESSAGES);
 
   if (!performRequest(url, HTTP_METHOD_GET, response, statusCode)) return false;
+  lastPollStatusCode = statusCode;
   if (statusCode != 200) {
     Serial.printf("Message poll returned HTTP %d: %s\n", statusCode,
                   response.c_str());
+    lastErrorCode = "message_poll_http_" + String(statusCode);
     return false;
   }
 
@@ -793,6 +890,7 @@ bool fetchHistory(MailMessage *loadedMessages, size_t &loadedCount,
   const DeserializationError error = deserializeJson(document, response);
   if (error) {
     Serial.printf("Message JSON parse failed: %s\n", error.c_str());
+    lastErrorCode = "message_poll_json";
     return false;
   }
 
@@ -822,6 +920,7 @@ bool acknowledgeMessage(const String &messageId) {
   if (statusCode != 200) {
     Serial.printf("Acknowledge returned HTTP %d: %s\n", statusCode,
                   response.c_str());
+    lastErrorCode = "ack_http_" + String(statusCode);
     return false;
   }
   return true;
@@ -841,8 +940,10 @@ void pollMessages() {
 
   if (!fetchHistory(loadedMessages, loadedCount, serverUnreadCount)) {
     if (!historyLoaded) showError("Unable to reach mailbox service");
+    sendDeviceStatus("message_poll_failed", lastErrorCode);
     return;
   }
+  lastErrorCode = "";
 
   messageCount = loadedCount;
   unreadCount = serverUnreadCount;
@@ -883,6 +984,7 @@ void pollMessages() {
   if (newUnreadArrived) {
     playNotification();
     Serial.printf("Unread message queue updated: %d waiting\n", unreadCount);
+    sendDeviceStatus("message_received", String(unreadCount) + " unread");
   }
 
   if (displayChanged && !screensaverActive) {
@@ -913,6 +1015,7 @@ void acknowledgeCurrent() {
   messages[currentIndex].read = true;
   unreadCount = max(0, unreadCount - 1);
   Serial.printf("Acknowledged message %s\n", messageId.c_str());
+  sendDeviceStatus("message_marked_read", messageId);
   playTone(70, SFE_QWIIC_BUZZER_VOLUME_LOW);
   removeLocalMessageAt(currentIndex);
   lastDisplayedMessage = acknowledgedMessage;
@@ -1083,9 +1186,13 @@ bool fetchFirmwareRelease(FirmwareRelease &release, bool &available) {
   int statusCode = 0;
   const String url = apiBaseUrl + "/api/device/firmware";
 
-  if (!performRequest(url, HTTP_METHOD_GET, response, statusCode)) return false;
+  if (!performRequest(url, HTTP_METHOD_GET, response, statusCode)) {
+    lastErrorCode = "ota_manifest_request";
+    return false;
+  }
   if (statusCode != 200) {
     Serial.printf("Firmware manifest returned HTTP %d\n", statusCode);
+    lastErrorCode = "ota_manifest_http_" + String(statusCode);
     return false;
   }
 
@@ -1093,6 +1200,7 @@ bool fetchFirmwareRelease(FirmwareRelease &release, bool &available) {
   const DeserializationError error = deserializeJson(document, response);
   if (error) {
     Serial.printf("Firmware manifest parse failed: %s\n", error.c_str());
+    lastErrorCode = "ota_manifest_json";
     return false;
   }
 
@@ -1109,6 +1217,7 @@ bool fetchFirmwareRelease(FirmwareRelease &release, bool &available) {
   }
   if (!release.url.startsWith("https://") || !isSha256(release.sha256)) {
     Serial.println("Firmware manifest is incomplete or invalid.");
+    lastErrorCode = "ota_manifest_invalid";
     available = false;
   }
   return true;
@@ -1158,6 +1267,7 @@ void showOtaProgress(const String &version, int percent) {
 bool installFirmware(const FirmwareRelease &release) {
   showOtaProgress(release.version, 0);
   Serial.printf("Starting OTA update to %s\n", release.version.c_str());
+  sendDeviceStatus("ota_started", release.version);
 
   esp_http_client_config_t httpConfig = {};
   httpConfig.url = release.url.c_str();
@@ -1174,6 +1284,8 @@ bool installFirmware(const FirmwareRelease &release) {
   if (updatePartition == nullptr) {
     Serial.println("No OTA update partition is available.");
     showError("No OTA partition");
+    lastErrorCode = "ota_partition_missing";
+    sendDeviceStatus("ota_failed", lastErrorCode);
     return false;
   }
 
@@ -1182,6 +1294,8 @@ bool installFirmware(const FirmwareRelease &release) {
   if (result != ESP_OK) {
     Serial.printf("OTA begin failed: %s\n", esp_err_to_name(result));
     showError("OTA connection failed");
+    lastErrorCode = "ota_begin_failed";
+    sendDeviceStatus("ota_failed", esp_err_to_name(result));
     return false;
   }
 
@@ -1204,8 +1318,11 @@ bool installFirmware(const FirmwareRelease &release) {
     Serial.printf("OTA download failed: %s\n", esp_err_to_name(result));
     esp_https_ota_abort(otaHandle);
     showError("OTA download failed");
+    lastErrorCode = "ota_download_failed";
+    sendDeviceStatus("ota_failed", esp_err_to_name(result));
     return false;
   }
+  sendDeviceStatus("ota_downloaded", release.version);
 
   uint8_t partitionDigest[32];
   if (esp_partition_get_sha256(updatePartition, partitionDigest) != ESP_OK ||
@@ -1213,13 +1330,18 @@ bool installFirmware(const FirmwareRelease &release) {
     Serial.println("OTA SHA-256 verification failed.");
     esp_https_ota_abort(otaHandle);
     showError("OTA verification failed");
+    lastErrorCode = "ota_sha_mismatch";
+    sendDeviceStatus("ota_failed", lastErrorCode);
     return false;
   }
+  sendDeviceStatus("ota_verified", release.version);
 
   result = esp_https_ota_finish(otaHandle);
   if (result != ESP_OK) {
     Serial.printf("OTA finish failed: %s\n", esp_err_to_name(result));
     showError("OTA install failed");
+    lastErrorCode = "ota_finish_failed";
+    sendDeviceStatus("ota_failed", esp_err_to_name(result));
     return false;
   }
 
@@ -1237,12 +1359,15 @@ void checkForOtaUpdate() {
   FirmwareRelease release;
   bool available = false;
   Serial.printf("Checking OTA manifest from version %s\n", FIRMWARE_VERSION);
+  sendDeviceStatus("ota_check", FIRMWARE_VERSION);
   if (!fetchFirmwareRelease(release, available)) {
     Serial.println("OTA manifest check failed.");
+    sendDeviceStatus("ota_failed", lastErrorCode);
     return;
   }
   if (!available) {
     Serial.println("No newer valid firmware release.");
+    sendDeviceStatus("ota_no_update", FIRMWARE_VERSION);
     return;
   }
 
@@ -1260,12 +1385,14 @@ void confirmRunningImage() {
     delay(500);
     const esp_err_t result = esp_ota_mark_app_valid_cancel_rollback();
     Serial.printf("OTA image validation: %s\n", esp_err_to_name(result));
+    otaConfirmedStatusPending = result == ESP_OK;
   }
 }
 
 void setup() {
   Serial.begin(115200);
   delay(1500);
+  bootId = String(static_cast<uint32_t>(esp_random()), HEX);
 
   loadConfiguration();
   if (!wifiConfigured()) {
@@ -1330,6 +1457,21 @@ void loop() {
   if (now - lastPollAt >= POLL_INTERVAL_MS) {
     lastPollAt = now;
     pollMessages();
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    if (otaConfirmedStatusPending) {
+      otaConfirmedStatusPending = false;
+      lastStatusAt = now;
+      sendDeviceStatus("ota_confirmed", FIRMWARE_VERSION);
+    } else if (bootStatusPending) {
+      bootStatusPending = false;
+      lastStatusAt = now;
+      sendDeviceStatus("boot", resetReasonName());
+    } else if (now - lastStatusAt >= STATUS_INTERVAL_MS) {
+      lastStatusAt = now;
+      sendDeviceStatus("heartbeat", "");
+    }
   }
 
   updateScreensaver();
