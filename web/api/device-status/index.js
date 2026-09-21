@@ -57,12 +57,13 @@ function safeNumber(value) {
   return Math.trunc(value);
 }
 
-function buildSnapshotEntity(device, body, receivedAt) {
+function buildSnapshotEntity(device, body, receivedAt, diagnostics) {
   const entity = {
     partitionKey: device.mailbox,
     rowKey: "latest",
     mailbox: device.mailbox,
     receivedAt,
+    ...diagnostics,
   };
 
   for (const field of STRING_FIELDS) {
@@ -78,10 +79,10 @@ function buildSnapshotEntity(device, body, receivedAt) {
   return entity;
 }
 
-function buildEventEntity(device, body, receivedAt) {
-  const eventName = boundedString(body.event, MAX_EVENT_NAME_LENGTH);
-  if (!eventName) return null;
-
+function buildEventEntity(device, body, receivedAt, diagnostics) {
+  const eventName =
+    boundedString(body.event, MAX_EVENT_NAME_LENGTH) ||
+    (Object.keys(body).length > 0 ? "status_post" : "status_post_empty");
   return {
     partitionKey: device.mailbox,
     rowKey: `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`,
@@ -92,6 +93,35 @@ function buildEventEntity(device, body, receivedAt) {
     bootId: boundedString(body.bootId),
     uptimeMs: safeNumber(body.uptimeMs) ?? 0,
     receivedAt,
+    ...diagnostics,
+  };
+}
+
+function requestBodyType(value) {
+  if (value === null) return "null";
+  if (value === undefined) return "undefined";
+  if (Buffer.isBuffer(value)) return "buffer";
+  if (Array.isArray(value)) return "array";
+  return typeof value;
+}
+
+function requestBodyLength(value) {
+  if (typeof value === "string") return value.length;
+  if (Buffer.isBuffer(value)) return value.length;
+  if (value && typeof value === "object") return JSON.stringify(value).length;
+  return 0;
+}
+
+function buildDiagnostics(req, body) {
+  const headers = (req && req.headers) || {};
+  return {
+    contentType: boundedString(headers["content-type"] || headers["Content-Type"], 120),
+    contentLength: safeNumber(Number(headers["content-length"] || headers["Content-Length"] || 0)) ?? 0,
+    requestBodyType: requestBodyType(req && req.body),
+    requestBodyLength: requestBodyLength(req && req.body),
+    rawBodyType: requestBodyType(req && req.rawBody),
+    rawBodyLength: requestBodyLength(req && req.rawBody),
+    parsedFieldCount: Object.keys(body).length,
   };
 }
 
@@ -141,6 +171,7 @@ module.exports = async function (context, req) {
   }
 
   const body = parseBody(req);
+  const diagnostics = buildDiagnostics(req, body);
   const receivedAt = new Date().toISOString();
   const statusTable = getTableClient(account, key, "deviceStatus");
   const eventsTable = getTableClient(account, key, "deviceEvents");
@@ -148,11 +179,8 @@ module.exports = async function (context, req) {
   try {
     await ensureTable(statusTable, context, "deviceStatus");
     await ensureTable(eventsTable, context, "deviceEvents");
-    await statusTable.upsertEntity(buildSnapshotEntity(device, body, receivedAt), "Replace");
-    const eventEntity = buildEventEntity(device, body, receivedAt);
-    if (eventEntity) {
-      await eventsTable.createEntity(eventEntity);
-    }
+    await statusTable.upsertEntity(buildSnapshotEntity(device, body, receivedAt, diagnostics), "Replace");
+    await eventsTable.createEntity(buildEventEntity(device, body, receivedAt, diagnostics));
   } catch (error) {
     context.log.error("Device status write failed:", error);
     context.res = { status: 500, body: { error: "Device status was not recorded" } };
