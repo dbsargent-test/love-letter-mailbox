@@ -37,9 +37,10 @@ $endpointPatterns = @(
   'getTableClient(account, key, "deviceEvents")',
   'await statusTable.upsertEntity(buildSnapshotEntity(device, body, receivedAt), "Replace")',
   'await eventsTable.createEntity(eventEntity)',
-  'function parseBody(body)',
-  'JSON.parse(body)',
-  'const body = parseBody(req.body);',
+  'function parseBody(req)',
+  'req.rawBody',
+  'JSON.parse(candidate)',
+  'const body = parseBody(req);',
   'boundedString(body.firmwareVersion)',
   '"wifiRssi"',
   'safeNumber(body[field])'

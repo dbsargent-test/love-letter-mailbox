@@ -95,12 +95,22 @@ function buildEventEntity(device, body, receivedAt) {
   };
 }
 
-function parseBody(body) {
-  if (!body) return {};
-  if (typeof body === "object") return body;
-  if (typeof body !== "string") return {};
+function parseBody(req) {
+  const body = req && req.body;
+  if (body && typeof body === "object") return body;
+
+  const candidate =
+    typeof body === "string" && body.trim()
+      ? body
+      : typeof req.rawBody === "string" && req.rawBody.trim()
+        ? req.rawBody
+        : typeof req.rawBody === "object" && Buffer.isBuffer(req.rawBody)
+          ? req.rawBody.toString("utf8")
+          : "";
+
+  if (!candidate) return {};
   try {
-    const parsed = JSON.parse(body);
+    const parsed = JSON.parse(candidate);
     return parsed && typeof parsed === "object" ? parsed : {};
   } catch {
     return {};
@@ -130,7 +140,7 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const body = parseBody(req.body);
+  const body = parseBody(req);
   const receivedAt = new Date().toISOString();
   const statusTable = getTableClient(account, key, "deviceStatus");
   const eventsTable = getTableClient(account, key, "deviceEvents");
