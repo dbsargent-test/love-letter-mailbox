@@ -434,6 +434,12 @@ Ran 24 automated tests against production deployment — **22/24 passed:**
 **V2 improvement requirements captured from physical fit/use:**
 - Use a larger portrait-oriented screen; selected target is the Adafruit 2.8" portrait-capable TFT with EYESPI path.
 - Add a real speaker/audio playback path for MP3 or songs in addition to the Qwiic buzzer; the selected hardware is the SparkFun Qwiic MP3 Trigger plus an 8Ω enclosed mini speaker.
+- Keep the physical Qwiic Button as the primary interaction control.
+- Add a Hall-effect sensor so firmware can detect/confirm when the flag has been lowered.
+- Use microSD-backed audio storage through the Qwiic MP3 Trigger.
+- Remove the Qwiic Buzzer from the V2 hardware stack if the MP3 Trigger validates reliably.
+- Add a speaker acoustic chamber/vent path into the enclosure design rather than treating the speaker as a loose internal part.
+- Use a larger battery than the current 850mAh LiPo because the larger display and audio path increase current draw.
 - Rework screen and button placement because the Qwiic Button PCB interfered with the display cable.
 - Redesign the servo housing; the current servo fit was wrong.
 - Redesign the flag-to-servo interface; the flag did not mount correctly on the servo head.
