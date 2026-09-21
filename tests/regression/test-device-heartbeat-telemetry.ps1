@@ -45,7 +45,8 @@ $endpointPatterns = @(
   'function parseBody(req)',
   'req.rawBody',
   'JSON.parse(candidate)',
-  'const body = parseBody(req);',
+  'const parsed = parseBody(req);',
+  'const body = parsed.body;',
   'boundedString(body.firmwareVersion)',
   '"wifiRssi"',
   'safeNumber(body[field])'
