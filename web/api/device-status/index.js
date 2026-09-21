@@ -95,6 +95,18 @@ function buildEventEntity(device, body, receivedAt) {
   };
 }
 
+function parseBody(body) {
+  if (!body) return {};
+  if (typeof body === "object") return body;
+  if (typeof body !== "string") return {};
+  try {
+    const parsed = JSON.parse(body);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
 module.exports = async function (context, req) {
   const account = process.env.STORAGE_ACCOUNT_NAME;
   const key = process.env.STORAGE_ACCOUNT_KEY;
@@ -118,7 +130,7 @@ module.exports = async function (context, req) {
     return;
   }
 
-  const body = req.body || {};
+  const body = parseBody(req.body);
   const receivedAt = new Date().toISOString();
   const statusTable = getTableClient(account, key, "deviceStatus");
   const eventsTable = getTableClient(account, key, "deviceEvents");
