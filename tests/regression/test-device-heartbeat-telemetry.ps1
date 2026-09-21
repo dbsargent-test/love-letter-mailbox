@@ -35,7 +35,7 @@ $endpointPatterns = @(
   'verifyDeviceKey(req, deviceKeysTable)',
   'getTableClient(account, key, "deviceStatus")',
   'getTableClient(account, key, "deviceEvents")',
-  'await statusTable.upsertEntity(buildSnapshotEntity(device, body, receivedAt), "Replace")',
+  'await statusTable.upsertEntity(buildSnapshotEntity(device, body, receivedAt, diagnostics), "Replace")',
   'await eventsTable.createEntity(buildEventEntity(device, body, receivedAt, diagnostics))',
   'status_post_empty',
   'parsedFieldCount',
