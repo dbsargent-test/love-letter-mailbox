@@ -13,12 +13,16 @@ $endpoint = Get-Content -LiteralPath $endpointPath -Raw
 $function = Get-Content -LiteralPath $functionPath -Raw
 
 $firmwarePatterns = @(
-  '#define FIRMWARE_VERSION "1.2.11"',
+  '#define FIRMWARE_VERSION "1.2.12"',
   'constexpr unsigned long STATUS_INTERVAL_MS = 60UL * 1000UL;',
+  'constexpr size_t STATUS_PAYLOAD_BYTES = 768;',
   'apiBaseUrl + "/api/device/status"',
   'document["firmwareVersion"] = FIRMWARE_VERSION;',
   'document["bootId"] = bootId;',
   'document["wifiRssi"] = WiFi.RSSI();',
+  'char payload[STATUS_PAYLOAD_BYTES];',
+  'serializeJson(document, payload, sizeof(payload))',
+  'payloadLength)',
   'sendDeviceStatus("heartbeat", "")',
   'sendDeviceStatus("boot", resetReasonName())',
   'sendDeviceStatus("ota_confirmed", FIRMWARE_VERSION)',

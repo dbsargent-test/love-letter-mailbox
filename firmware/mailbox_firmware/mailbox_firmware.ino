@@ -24,7 +24,7 @@
 #ifdef OTA_DEMO_BOOTSTRAP
 #define FIRMWARE_VERSION "1.0.0"
 #else
-#define FIRMWARE_VERSION "1.2.11"
+#define FIRMWARE_VERSION "1.2.12"
 #endif
 
 #ifdef OTA_DEMO_BOOTSTRAP
@@ -65,6 +65,7 @@ constexpr uint32_t MAX_VALID_PRESS_MS = 10000;
 constexpr unsigned long OTA_INITIAL_DELAY_MS = 20000;
 constexpr unsigned long OTA_CHECK_INTERVAL_MS = 15UL * 60UL * 1000UL;
 constexpr unsigned long STATUS_INTERVAL_MS = 60UL * 1000UL;
+constexpr size_t STATUS_PAYLOAD_BYTES = 768;
 
 Adafruit_ST7789 display(&SPI, TFT_CS, TFT_DC, TFT_RST);
 QwiicButton button;
@@ -501,7 +502,7 @@ void maintainWifi() {
 
 bool performRequest(const String &url, esp_http_client_method_t method,
                     String &response, int &statusCode,
-                    const String &payload = "") {
+                    const char *payload = nullptr, size_t payloadLength = 0) {
   esp_http_client_config_t config = {};
   config.url = url.c_str();
   config.event_handler = collectHttpResponse;
@@ -520,8 +521,11 @@ bool performRequest(const String &url, esp_http_client_method_t method,
   esp_http_client_set_header(client, "Accept", "application/json");
   if (method == HTTP_METHOD_PATCH || method == HTTP_METHOD_POST) {
     esp_http_client_set_header(client, "Content-Type", "application/json");
-    const String body = payload.isEmpty() ? "{}" : payload;
-    esp_http_client_set_post_field(client, body.c_str(), body.length());
+    if (payload != nullptr && payloadLength > 0) {
+      esp_http_client_set_post_field(client, payload, payloadLength);
+    } else {
+      esp_http_client_set_post_field(client, "{}", 2);
+    }
   }
 
   const esp_err_t result = esp_http_client_perform(client);
@@ -602,13 +606,18 @@ void sendDeviceStatus(const char *eventName, const String &detail) {
     document["detail"] = detail;
   }
 
-  String payload;
-  serializeJson(document, payload);
+  char payload[STATUS_PAYLOAD_BYTES];
+  const size_t payloadLength = serializeJson(document, payload, sizeof(payload));
+  if (payloadLength == 0 || payloadLength >= sizeof(payload)) {
+    Serial.println("Device status payload serialization failed.");
+    return;
+  }
 
   String response;
   int statusCode = 0;
   const String url = apiBaseUrl + "/api/device/status";
-  if (!performRequest(url, HTTP_METHOD_POST, response, statusCode, payload) ||
+  if (!performRequest(url, HTTP_METHOD_POST, response, statusCode, payload,
+                      payloadLength) ||
       statusCode != 200) {
     Serial.printf("Device status POST failed: HTTP %d %s\n", statusCode,
                   response.c_str());
