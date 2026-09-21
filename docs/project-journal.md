@@ -433,7 +433,7 @@ Ran 24 automated tests against production deployment — **22/24 passed:**
 
 **V2 improvement requirements captured from physical fit/use:**
 - Use a larger portrait-oriented screen.
-- Add a real speaker/audio playback path for MP3 or songs in addition to the Qwiic buzzer; the current buzzer can only play tones.
+- Add a real speaker/audio playback path for MP3 or songs in addition to the Qwiic buzzer; the selected hardware is the SparkFun Qwiic MP3 Trigger plus an 8Ω enclosed mini speaker.
 - Rework screen and button placement because the Qwiic Button PCB interfered with the display cable.
 - Redesign the servo housing; the current servo fit was wrong.
 - Redesign the flag-to-servo interface; the flag did not mount correctly on the servo head.
