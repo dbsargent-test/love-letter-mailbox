@@ -432,7 +432,7 @@ Ran 24 automated tests against production deployment — **22/24 passed:**
 - Treat V1 as complete as of 2026-09-19.
 
 **V2 improvement requirements captured from physical fit/use:**
-- Use a larger portrait-oriented screen.
+- Use a larger portrait-oriented screen; selected target is the Adafruit 2.8" portrait-capable TFT with EYESPI path.
 - Add a real speaker/audio playback path for MP3 or songs in addition to the Qwiic buzzer; the selected hardware is the SparkFun Qwiic MP3 Trigger plus an 8Ω enclosed mini speaker.
 - Rework screen and button placement because the Qwiic Button PCB interfered with the display cable.
 - Redesign the servo housing; the current servo fit was wrong.
