@@ -565,6 +565,7 @@
         pwYourPH: 'Your password',
         language: '🌐 Language', unread: 'Unread', read: 'Read',
         delivered: 'Delivered', sentAt: 'Sent',
+        readHeartbeat: 'Heartbeat received',
         hi: 'Hi', loggedOut: 'Logged out',
         regPwNoMatch: 'Passwords do not match',
         inappropriateContent: 'Message contains inappropriate content.',
@@ -631,6 +632,7 @@
         pwYourPH: 'Tu contraseña',
         language: '🌐 Idioma', unread: 'No leído', read: 'Leído',
         delivered: 'Entregado', sentAt: 'Enviado',
+        readHeartbeat: 'Latido recibido',
         hi: 'Hola', loggedOut: 'Sesión cerrada',
         regPwNoMatch: 'Las contraseñas no coinciden',
         inappropriateContent: 'El mensaje contiene contenido inapropiado.',
@@ -1304,7 +1306,9 @@
 
         const html = messages.map(msg => {
           const statusLabel = currentTab === 'sent'
-            ? (msg.read ? `✓ ${t('read')}` : `● ${t('delivered')}`)
+            ? (msg.read
+              ? `${msg.readHeartbeat || '💗'} ${t('readHeartbeat')}${msg.readAt ? ` · ${formatTime(msg.readAt)}` : ''}`
+              : `● ${t('delivered')}`)
             : (msg.read ? `✓ ${t('read')}` : `● ${t('unread')}`);
           const statusClass = msg.read ? 'read' : 'unread';
           const recipientLine = currentTab === 'sent' && msg.recipient

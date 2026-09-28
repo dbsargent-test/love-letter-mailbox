@@ -140,6 +140,7 @@ async function getMessages(context, req, user) {
     const canUnsend = viewSent && (Date.now() - sentTime < 5 * 60 * 1000);
 
     const timestamp = entity.timestamp_sent || entity.timestamp;
+    const readAt = entity.readAt || null;
     const message = {
       id: entity.rowKey,
       sender: entity.sender,
@@ -147,6 +148,9 @@ async function getMessages(context, req, user) {
       text: entity.text || "",
       photoUrl: generatePhotoSasUrl(entity.photoUrl),
       read: entity.read || false,
+      readAt,
+      readHeartbeat: entity.readHeartbeat || "",
+      readByDevice: entity.readByDevice || false,
       timestamp,
       canUnsend
     };
@@ -314,6 +318,9 @@ async function postMessage(context, req, user) {
     photoBytes: entityPhotoMetadata?.size || 0,
     photoVersion: entityPhotoMetadata?.version || 0,
     read: false,
+    readAt: "",
+    readHeartbeat: "",
+    readByDevice: false,
     timestamp_sent: new Date().toISOString()
   };
 
@@ -331,9 +338,23 @@ async function markRead(context, req, user, messageId) {
   // Only mark messages in YOUR mailbox as read
   try {
     const entity = await tableClient.getEntity(user.mailbox, messageId);
+    if (!entity.read) {
+      entity.readAt = new Date().toISOString();
+    }
     entity.read = true;
+    entity.readHeartbeat = entity.readHeartbeat || "💗";
+    entity.readByDevice = entity.readByDevice || !!user.isDevice;
     await tableClient.updateEntity(entity, "Merge");
-    context.res = { status: 200, headers: { "Content-Type": "application/json" }, body: { status: "read" } };
+    context.res = {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+      body: {
+        status: "read",
+        readAt: entity.readAt,
+        readHeartbeat: entity.readHeartbeat,
+        readByDevice: entity.readByDevice
+      }
+    };
   } catch (err) {
     context.res = { status: 404, body: { error: "Message not found" } };
   }

@@ -36,6 +36,7 @@ Features we added **beyond** the original Love Letter Tech product:
 | 7 | **Azure cloud backend** | Enterprise-grade hosting vs Firebase | Architecture change | ~$0.02/mo |
 | 8 | **Open-source documentation** | Public GitHub repo with full docs | Documentation | Time only |
 | 9 | **Battery fuel gauge monitoring** | Comes free with ESP32-C5 Thing Plus | Firmware feature | $0 |
+| 10 | **Read heart receipts in sent view** | Gives the sender confirmation when each message has been read | Backend + web UX | $0 |
 
 ### Scope Creep Score
 
@@ -43,8 +44,8 @@ Features we added **beyond** the original Love Letter Tech product:
 |--------|-------|
 | **Original features replicated** | 8 of 10 (80%) |
 | **Features descoped** | 2 (native app, QR pairing) |
-| **Features added beyond original** | 9 |
-| **Scope creep ratio** | 9 added ÷ 10 baseline = **0.9x** |
+| **Features added beyond original** | 10 |
+| **Scope creep ratio** | 10 added ÷ 10 baseline = **1.0x** |
 | **Cost creep** | $129 (commercial) → $92 (DIY) = **29% cheaper** despite more features |
 | **Complexity creep** | Medium — most additions are Qwiic snap-in (no extra code complexity) |
 
@@ -61,7 +62,7 @@ Features we added **beyond** the original Love Letter Tech product:
 - ❌ Voice messages (I2S DAC + speaker — v2)
 - ❌ Emoji rendering (custom fonts — v2)
 - ❌ Weather display (API integration — v2)
-- ❌ Read receipts (bidirectional messaging — v2)
+- ✅ Read heart receipts in the sent-message view
 - ❌ Multiple device pairing (group messaging — v2)
 - ❌ E-ink display option (different hardware — v2)
 

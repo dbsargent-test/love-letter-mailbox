@@ -16,6 +16,7 @@ A palm-sized, WiFi-connected mailbox that displays text messages and photos on a
 - 🔔 **Notification chime** — Qwiic buzzer plays a tone on message arrival
 - 🌙 **Auto-dimming** — ambient light sensor dims the display at night
 - 🔘 **Physical button** — mark messages as read, scroll through message history
+- 💗 **Read heart receipts** — sent messages show when the recipient has read them
 - 🔄 **Over-the-air updates** — push firmware updates remotely, no physical access needed
 - 🔋 **Battery backup** — LiPo battery keeps the device running through power blips
 - 📡 **Dual-band WiFi 6** — works on 2.4GHz AND 5GHz networks (no band-steering headaches)
