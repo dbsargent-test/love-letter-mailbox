@@ -158,11 +158,12 @@ Features we added **beyond** the original Love Letter Tech product:
 - [x] Security audit & hardening — 21 findings fixed, 22/24 live tests passed
 - [ ] Register GIPHY API key for GIF search (optional)
 - [ ] Extract inline JS to external file (remove CSP `unsafe-inline`)
-- [ ] Write complete ESP32-C5 firmware
+- [x] Write complete ESP32-C5 firmware for V1 message/photo/read-heart flow
 - [x] Compile, flash, and visually verify the ST7789 display diagnostic
-- [ ] Design 3D printable enclosure
-- [ ] Build spinning heart servo notification (Lovebox-inspired)
-- [ ] Test end-to-end when hardware arrives
+- [x] Design and physically validate the V1 3D printable enclosure
+- [x] Build servo flag notification for V1
+- [x] Test V1 end-to-end with physical hardware
+- [ ] Build V2 translucent heart glow/touch/haptic interaction
 
 ### 2026-09-16 (Wed) — Display Firmware Validation
 
@@ -456,22 +457,24 @@ Ran 24 automated tests against production deployment — **22/24 passed:**
 
 **V2 improvement requirements captured from physical fit/use:**
 - Use a larger portrait-oriented screen; selected target is the Adafruit 2.8" portrait-capable TFT with EYESPI path.
-- Add a real speaker/audio playback path for MP3 or songs in addition to the Qwiic buzzer; the selected hardware is the SparkFun Qwiic MP3 Trigger plus an 8Ω enclosed mini speaker.
-- Keep the physical Qwiic Button as the primary interaction control.
+- Add a real speaker/audio playback path for MP3/songs; the current preferred architecture is ESP32-managed audio from the TFT #2090 microSD card through a MAX98357A I2S amplifier and enclosed speaker.
+- Keep the physical Qwiic Button as a fallback or alternate interaction control while V2 validates heart-touch input.
 - Add a Hall-effect sensor so firmware can detect/confirm when the flag has been lowered.
-- Use microSD-backed audio storage through the Qwiic MP3 Trigger.
-- Remove the Qwiic Buzzer from the V2 hardware stack if the MP3 Trigger validates reliably.
+- Use ESP32-accessible microSD-backed media storage through the TFT #2090, not a separate audio board that owns its own SD card.
+- Remove or demote the Qwiic Buzzer from the V2 hardware stack after the MAX98357A speaker path validates.
 - Add a speaker acoustic chamber/vent path into the enclosure design rather than treating the speaker as a loose internal part.
-- Use a larger battery than the current 850mAh LiPo because the larger display and audio path increase current draw.
+- Use the ordered #1781 2200mAh cylindrical LiIon battery because the larger display, audio path, NeoPixel, haptics, and Wi-Fi bursts increase current draw.
 - Rework screen and button placement because the Qwiic Button PCB interfered with the display cable.
 - Redesign the servo housing; the current servo fit was wrong.
 - Redesign the flag-to-servo interface; the flag did not mount correctly on the servo head.
+- Add a translucent printed heart with NeoPixel glow, copper electrode, MPR121 capacitive touch, and DRV2605L haptic feedback.
+- Redesign the floor/tray around ESP32 bottom-header clearance and #1781 cylindrical battery placement.
 
 **V2 decisions to lock later:**
-- Exact Hall-effect sensor part and magnet placement.
-- Exact larger LiPo capacity and battery bay dimensions.
-- Final 2.8" TFT product/variant after purchase availability check.
-- Whether touch is used for archive/settings only or disabled entirely.
+- Exact magnet placement for the Hall-effect sensor.
+- Exact #1781 battery orientation and retention geometry.
+- Final #2090 display/microSD service access after physical fit review.
+- Whether capacitive heart touch replaces the Qwiic Button for the primary read/heart-back flow or remains supplemental.
 - Final enclosure speaker vent/acoustic chamber geometry after speaker selection.
 
 **OTA release lesson learned:**

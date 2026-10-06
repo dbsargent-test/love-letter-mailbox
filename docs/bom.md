@@ -1,7 +1,9 @@
-# Bill of Materials
+# V1 Bill of Materials
 
 > **This BOM builds TWO complete mailboxes** (one for you, one for your recipient).
 > Per-unit cost: ~$46
+> V2 expansion parts are tracked separately in
+> [Mailbox V2 Build Plan](v2-build-plan.md).
 
 ## Core Components
 

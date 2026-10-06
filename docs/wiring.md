@@ -1,8 +1,13 @@
-# Wiring Guide
+# V1 Wiring Guide
+
+This page documents the validated V1 wiring. V2 changes the display, media
+storage, audio, heart input/output, haptics, flag sensing, battery, and internal
+tray layout; see [Mailbox V2 Build Plan](v2-build-plan.md) before wiring the
+next revision.
 
 ## Overview
 
-The mailbox uses two communication interfaces:
+The V1 mailbox uses two communication interfaces:
 - **SPI** — for the TFT display (8 wires including power and backlight)
 - **Qwiic (I2C)** — for the light sensor, buzzer, and button (daisy-chained, no soldering)
 
@@ -37,7 +42,7 @@ The verified SparkFun ESP32-C5 Thing Plus pins for this project are:
 
 ## TFT Display Wiring (SPI)
 
-Connect the 2.0" ST7789 display to the ESP32-C5:
+Connect the V1 2.0" ST7789 display to the ESP32-C5:
 
 | EYESPI Pin | ESP32-C5 Pin | Installed Wire Color |
 |------------|-------------|----------------------|
@@ -150,7 +155,11 @@ Qwiic Buzzer (0x34)
 | Qwiic Button | 0x6F | Yes |
 | MAX17048 Fuel Gauge (onboard) | 0x36 | Onboard — no wiring |
 
-No address conflicts. All four devices coexist on the same I2C bus.
+No V1 address conflicts. All four devices coexist on the same I2C bus.
+
+V2 will add at least the MPR121 capacitive touch sensor and DRV2605L haptic
+controller to the I2C plan. Run an I2C scanner before final V2 wiring and
+resolve any address conflict before mounting the boards.
 
 ---
 
@@ -214,5 +223,7 @@ Plug the JST-PH connector into the battery port on the Thing Plus. That's it.
 4. **Serial Monitor (115200 baud):** Confirm `Display pattern rendered.`
 5. **Expected result:** Four colored bands, `LOVE LETTER`, and `DISPLAY OK`
 
-The display, Qwiic chain, and servo smoke tests have passed. WiFi provisioning
-and integrated mailbox validation remain separate tests.
+The V1 display, Qwiic chain, and servo smoke tests have passed. WiFi
+provisioning and integrated mailbox validation remain separate tests. V2 wiring
+must be validated separately after the #2090 TFT/microSD, MAX98357A, NeoPixel,
+MPR121, DRV2605L, Hall sensor, and battery layout are finalized.

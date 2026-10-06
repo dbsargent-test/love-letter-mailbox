@@ -6,6 +6,10 @@ The mailbox firmware includes built-in OTA update capability. Once the initial f
 
 This is critical for a device deployed at someone else's house.
 
+This page covers firmware OTA. V2 also needs an OTA media-cache workflow for
+downloaded pictures and audio files stored on the #2090 TFT microSD card; that
+media workflow is planned separately in [Mailbox V2 Build Plan](v2-build-plan.md).
+
 ---
 
 ## How It Works

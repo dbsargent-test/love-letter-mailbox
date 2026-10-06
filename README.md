@@ -8,10 +8,10 @@ A palm-sized, WiFi-connected mailbox that displays text messages and photos on a
 
 ---
 
-## ✨ Features
+## ✨ Current V1 Features
 
 - 📱 **Send messages from any browser** — no app to install, works on any phone/tablet/computer
-- 📸 **Photo support** — send photos that render on the 2.0" color IPS display
+- 📸 **Photo support** — send photos that render on the V1 2.0" color IPS display
 - 🚩 **Physical flag** — servo raises a red flag when a new message arrives
 - 🔔 **Notification chime** — Qwiic buzzer plays a tone on message arrival
 - 🌙 **Auto-dimming** — ambient light sensor dims the display at night
@@ -23,9 +23,18 @@ A palm-sized, WiFi-connected mailbox that displays text messages and photos on a
 - ☁️ **Azure-hosted backend** — reliable, free-tier, Microsoft infrastructure
 - 🔒 **Encrypted** — all communication over HTTPS
 
+## 🧭 V2 Direction
+
+V2 planning is now captured in [docs/v2-build-plan.md](docs/v2-build-plan.md).
+The next hardware revision moves to a larger 2.8" TFT with microSD, ESP32-managed
+OTA media downloads, I2S audio through a MAX98357A amplifier, a translucent
+NeoPixel-lit heart, capacitive heart-back input, haptic heartbeat feedback,
+flag-state sensing, and a redesigned internal tray for the real soldered-header
+ESP32 and cylindrical 2200mAh battery.
+
 ---
 
-## 💰 Cost Comparison
+## 💰 V1 Cost Comparison
 
 | | Love Letter Tech (Commercial) | This Project (DIY) |
 |---|---|---|
@@ -41,7 +50,7 @@ A palm-sized, WiFi-connected mailbox that displays text messages and photos on a
 
 ---
 
-## 🛒 Bill of Materials
+## 🛒 V1 Bill of Materials
 
 | Part | Source | Product | Price |
 |------|--------|---------|-------|
@@ -57,6 +66,7 @@ A palm-sized, WiFi-connected mailbox that displays text messages and photos on a
 | **Total** | | | **~$92** |
 
 > **Note:** BOM builds TWO complete mailboxes (one for you, one for recipient). Per-unit cost is ~$46.
+> V2 uses a different expansion BOM; see [docs/v2-build-plan.md](docs/v2-build-plan.md).
 
 ---
 
@@ -87,8 +97,8 @@ A palm-sized, WiFi-connected mailbox that displays text messages and photos on a
                                 │   ESP32-C5 Mailbox   │
                                 │                      │
                                 │  ┌────────────────┐  │
-                                │  │ 2.0" TFT (text │  │
-                                │  │ + photos)      │  │
+                                │  │ V1 2.0" TFT    │  │
+                                │  │ (text + photos)│  │
                                 │  ├────────────────┤  │
                                 │  │ Servo (flag)   │  │
                                 │  ├────────────────┤  │
@@ -171,9 +181,9 @@ MIT License — build one, sell one, modify it, do whatever you want.
 | Current firmware source | **v1.2.10** |
 | V2 hardware planning | **Captured in docs/v2-build-plan.md** |
 | Original features replicated | 8 of 10 (80%) |
-| Features added beyond original | 9 |
-| Scope creep ratio | 0.9x |
-| Cost vs commercial ($129) | **$57/unit (56% cheaper)** |
+| V1 features added beyond original | 9 |
+| V1 scope creep ratio | 0.9x |
+| V1 cost vs commercial ($129) | **$57/unit (56% cheaper)** |
 | Monthly hosting cost | ~$0.02 |
 | Architecture failure resistance score | **9.7 / 10** |
 

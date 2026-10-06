@@ -1,5 +1,10 @@
 # Firmware Setup
 
+This page documents the validated V1 firmware path. V2 hardware planning is in
+[Mailbox V2 Build Plan](v2-build-plan.md); V2 firmware work still needs new
+drivers/tests for the #2090 TFT microSD path, MAX98357A I2S audio, NeoPixel
+Jewel, MPR121 touch input, DRV2605L haptics, and Hall sensor.
+
 ## Current Diagnostic
 
 The first firmware milestone is a display-only smoke test. Keep the LiPo
@@ -85,7 +90,7 @@ matches the validation hash reported by `esptool image-info`.
 - **Arduino FQBN:** `esp32:esp32:sparkfun_esp32c5_thing_plus`
 - **Upload port:** Select the COM port that identifies as Espressif USB
 
-### Display Smoke Test
+### V1 Display Smoke Test
 
 Open:
 
@@ -191,9 +196,13 @@ long-press behavior. Every non-screensaver press means read the current message
 and advance the unread queue.
 
 The Qwiic buzzer is a tone generator, not an audio playback device. Firmware
-v1.2.6 uses an original playful multi-beep arrival pattern; spoken phrases or
-character-voice laughs would require different audio hardware and licensed
-audio assets.
+v1.2.6 uses an original playful multi-beep arrival pattern.
+
+V2 will use different audio hardware: media files downloaded by the ESP32,
+stored on the #2090 TFT microSD card, and played over I2S through a MAX98357A
+amplifier and enclosed speaker. Spoken phrases, songs, or character-voice
+laughs must use licensed/original audio assets and the V2 audio path, not the
+Qwiic buzzer.
 
 ## Photo Rendering
 

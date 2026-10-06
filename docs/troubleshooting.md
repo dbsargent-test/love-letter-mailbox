@@ -1,5 +1,10 @@
 # Troubleshooting Guide
 
+This guide primarily covers the validated V1 hardware and firmware. V2 hardware
+planning is in [Mailbox V2 Build Plan](v2-build-plan.md); display, audio,
+microSD, haptic, touch, and Hall-sensor troubleshooting will need to be added
+after those circuits are validated.
+
 ## WiFi Issues
 
 ### Device won't connect to WiFi
@@ -28,7 +33,9 @@
 1. **Check SPI wiring:** Verify all 7 wires are connected to the correct pins (see [wiring.md](wiring.md)).
 2. **Check power:** The display needs 3.3V on VCC, not 5V.
 3. **Backlight pin:** Ensure BLK pin is connected to 3.3V (always on) or a GPIO pin.
-4. **Wrong driver config:** The firmware is configured for ST7789 240×320. If using a different display, update `User_Setup.h` in TFT_eSPI.
+4. **Wrong driver config:** The V1 firmware is configured for ST7789 240×320.
+   If using a different display, update the display driver configuration. V2
+   moves to the Adafruit #2090 2.8" TFT and must be validated separately.
 
 ### Screen shows garbled/wrong colors
 1. **Color order:** ST7789 uses RGB, not BGR. Check `TFT_RGB_ORDER` in the firmware config.
@@ -61,12 +68,16 @@
 
 ---
 
-## Buzzer Issues
+## V1 Buzzer Issues
 
 ### No sound on message arrival
 1. **Check Qwiic cable:** Ensure the cable clicks into both the ESP32-C5 and the buzzer.
 2. **I2C address:** The Qwiic Buzzer uses address `0x34`. Run an I2C scanner sketch to verify it's detected.
 3. **Volume:** The buzzer has adjustable volume in firmware. Check the volume setting.
+
+V2 replaces the buzzer-as-audio path with ESP32-managed SD-backed audio through
+MAX98357A and an enclosed speaker. Do not use this V1 buzzer section to debug
+V2 song/audio playback.
 
 ---
 

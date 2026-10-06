@@ -66,7 +66,14 @@ showed a normal double press at 707 ms. The regression guard is
 
 ## Overview
 
-The Love Letter Mailbox is a WiFi-connected IoT device that receives text messages and photos from a web interface and displays them on a color TFT screen. A servo-driven flag rises when a new message arrives, a buzzer plays a notification chime, and a button allows the recipient to mark messages as read.
+The Love Letter Mailbox is a WiFi-connected IoT device that receives text
+messages and photos from a web interface and displays them on a color TFT
+screen. The validated V1 hardware raises a servo-driven flag when a new message
+arrives, plays a Qwiic buzzer notification chime, and uses a physical button to
+mark messages as read. V2 planning is tracked in
+[Mailbox V2 Build Plan](v2-build-plan.md) and adds a larger TFT, SD-backed media
+cache, real audio playback, translucent glowing heart, capacitive heart-back
+input, haptic feedback, and flag-state sensing.
 
 ## Design Principles
 
@@ -118,7 +125,7 @@ Three architectures were evaluated:
 
 **Decision:** Option C wins on simplicity, cost, and failure resistance. The ESP32 code is just `HTTPClient.GET()` — no MQTT library, no Firebase SDK, no connection state to manage. If Azure ever changes, swapping to any JSON endpoint takes ~10 lines of code change.
 
-### 2.0" ST7789 TFT (over 1.3", 1.69", 2.4")
+### V1 2.0" ST7789 TFT (over 1.3", 1.69", 2.4")
 
 | Display | Resolution | Photo Quality | Enclosure Fit |
 |---------|-----------|---------------|---------------|
@@ -127,7 +134,13 @@ Three architectures were evaluated:
 | **2.0"** | **240×320** | **Good — natural photo aspect ratio** | **Palm-sized mailbox** |
 | 2.4" | 240×320 | Good | Enclosure gets bulky |
 
-**Decision:** 2.0" is the sweet spot. 240×320 matches standard photo aspect ratios, avoiding letterboxing. Physically only ~5mm larger than 1.69" but noticeably better for photo viewing.
+**V1 decision:** 2.0" was the validated V1 sweet spot. 240×320 matches standard
+photo aspect ratios, avoiding letterboxing. Physically only ~5mm larger than
+1.69" but noticeably better for photo viewing.
+
+**V2 update:** V2 moves to Adafruit #2090, a 2.8" TFT with capacitive touch,
+EYESPI, and microSD. The larger display and SD socket drive the V2 enclosure,
+media-cache, and power-budget work in [v2-build-plan.md](v2-build-plan.md).
 
 ---
 
@@ -184,7 +197,7 @@ Three architectures were evaluated:
 1. ESP32-C5 polls GET /api/messages?unread=true every 5 seconds
 2. If unread messages exist:
    a. Raise servo flag
-   b. Play buzzer chime
+   b. V1: play Qwiic buzzer chime; V2: play SD-backed audio through I2S amp
    c. Display message text on TFT
    d. If photo: use one of two RAM cache slots or download from Blob Storage,
       decode, center, and render without changing its aspect ratio
@@ -212,9 +225,9 @@ Three architectures were evaluated:
 
 ---
 
-## Qwiic Daisy-Chain
+## V1 Qwiic Daisy-Chain
 
-All I2C peripherals connect via the Qwiic connector system — no soldering required:
+V1 I2C peripherals connect via the Qwiic connector system — no soldering required:
 
 ```
 ESP32-C5 Qwiic Port
@@ -242,6 +255,10 @@ ESP32-C5 Qwiic Port
 | Qwiic Button | 0x6F |
 | MAX17048 Fuel Gauge (onboard) | 0x36 |
 
+V2 adds MPR121 capacitive touch and DRV2605L haptic control on I2C. Their
+addresses must be scanned before final wiring; if both use the same default
+address, change the MPR121 address before integrating both boards.
+
 ---
 
 ## Azure Resource Summary
@@ -257,13 +274,14 @@ All resources fit within the Azure free tier and/or the $200/mo Visual Studio En
 
 ---
 
-## Future Enhancements (v2+)
+## Future Enhancements
 
-- [ ] Voice messages (I2S DAC + speaker)
+- [x] Read receipts (sender sees when message was viewed)
+- [ ] V2 SD-backed audio playback (MAX98357A + speaker)
+- [ ] V2 heart-back interaction (capacitive touch + haptics)
 - [ ] Emoji rendering (custom font with emoji glyphs)
 - [ ] Weather display on idle screen
 - [ ] Multiple device pairing (family group messaging)
 - [ ] E-ink display option for ultra-low power
 - [ ] Custom notification melodies
-- [ ] Read receipts (sender sees when message was viewed)
-- [ ] Message reactions (button press sends ❤️ back to sender)
+- [ ] Message reactions / heart-back replies
