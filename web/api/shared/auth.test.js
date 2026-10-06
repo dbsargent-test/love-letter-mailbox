@@ -7,6 +7,7 @@ process.env.JWT_SECRET = "test-only-secret-that-is-long-enough";
 const {
   createToken,
   isTokenRevoked,
+  sanitizeDisplayName,
   verifyDeviceKey,
   verifyUserSession,
 } = require("./auth");
@@ -106,4 +107,13 @@ test("device authentication ignores query-string credentials", async () => {
     table
   );
   assert.equal(device.mailbox, "recipient");
+});
+
+test("display name sanitization removes HTML metacharacters without reintroducing tags", () => {
+  assert.equal(sanitizeDisplayName(" Doug  Sargent "), "Doug Sargent");
+  assert.equal(
+    sanitizeDisplayName("<scrip<script>alert(1)</script>t>Doug</script>"),
+    "scripscriptalert(1)/scripttDou"
+  );
+  assert.equal(sanitizeDisplayName("A&B \"Doug\" `test`"), "AB Doug test");
 });

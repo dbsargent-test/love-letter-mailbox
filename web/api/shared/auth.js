@@ -172,9 +172,13 @@ function clearAttempts(key, action = "login") {
   rateLimitBuckets.delete(`${action}:${key.toLowerCase()}`);
 }
 
-// Sanitize display name — strip HTML tags
+// Sanitize display name for storage/display by removing HTML metacharacters.
 function sanitizeDisplayName(name) {
-  return String(name).replace(/<[^>]*>/g, "").trim().substring(0, 30);
+  return String(name)
+    .replace(/[<>&"'`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .substring(0, 30);
 }
 
 // Audit logging to Table Storage
