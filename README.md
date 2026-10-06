@@ -23,14 +23,21 @@ A palm-sized, WiFi-connected mailbox that displays text messages and photos on a
 - ☁️ **Azure-hosted backend** — reliable, free-tier, Microsoft infrastructure
 - 🔒 **Encrypted** — all communication over HTTPS
 
-## 🧭 V2 Direction
+## ✨ Planned V2 Features
 
-V2 planning is now captured in [docs/v2-build-plan.md](docs/v2-build-plan.md).
-The next hardware revision moves to a larger 2.8" TFT with microSD, ESP32-managed
-OTA media downloads, I2S audio through a MAX98357A amplifier, a translucent
-NeoPixel-lit heart, capacitive heart-back input, haptic heartbeat feedback,
-flag-state sensing, and a redesigned internal tray for the real soldered-header
-ESP32 and cylindrical 2200mAh battery.
+V2 keeps the same Azure/web/ESP32 foundation and upgrades the physical mailbox:
+
+- 🖼️ **Larger portrait display** — Adafruit 2.8" TFT with capacitive touch, EYESPI, and microSD
+- 💾 **SD-backed media cache** — downloaded pictures and audio live on the TFT microSD card, not ESP32 flash
+- 🎵 **Real audio playback** — ESP32-managed audio over I2S to a MAX98357A amplifier and enclosed speaker
+- 💗 **Translucent glowing heart** — 3D-printed translucent heart insert lit by a NeoPixel Jewel
+- 👆 **Heart-back touch input** — copper foil electrode and MPR121 capacitive touch sensing
+- 💓 **Haptic heartbeat** — DRV2605L haptic controller and vibration motor
+- 🧲 **Flag-state sensing** — Hall-effect sensor and magnet/reed-switch fallback
+- 🔋 **Larger battery** — 2200mAh cylindrical LiIon cell, requiring a redesigned tray
+- 🧰 **Serviceable internal layout** — new floor/tray for ESP32 bottom headers, microSD access, speaker chamber, haptics, and wiring
+
+Full V2 planning is tracked in [docs/v2-build-plan.md](docs/v2-build-plan.md).
 
 ---
 
@@ -47,6 +54,23 @@ ESP32 and cylindrical 2200mAh battery.
 | **OTA updates** | Unknown | ✅ Remote firmware updates |
 | **Open source** | ❌ | ✅ Fully open |
 | **Requires app install** | ✅ iOS/Android app | ❌ Any browser works |
+
+---
+
+## 💰 V2 Cost / Capability Snapshot
+
+V2 is no longer optimized only for lowest cost; it is optimized for richer
+interaction and OTA-manageable media.
+
+| Area | V1 | V2 plan |
+|---|---|---|
+| Display | 2.0" ST7789 | 2.8" Adafruit #2090 TFT with capacitive touch and microSD |
+| Notification sound | Qwiic buzzer tones | WAV/audio files from microSD through MAX98357A + speaker |
+| Heart interaction | Read-heart receipt in web/app flow | Physical glowing/touch/haptic heart |
+| Media storage | ESP32 RAM/cache + backend blobs | ESP32-managed microSD cache for downloaded images/audio |
+| Battery | 850mAh flat LiPo | 2200mAh cylindrical LiIon |
+| Enclosure | V1 tray and display fit | New tray required for bottom headers, battery, heart, speaker, and SD access |
+| Incremental V2 purchases | — | Adafruit electronics order + Amazon microSD cards placed |
 
 ---
 
@@ -70,7 +94,49 @@ ESP32 and cylindrical 2200mAh battery.
 
 ---
 
-## 🏗️ System Architecture
+## 🛒 V2 Bill of Materials
+
+### Reused / Already In Stock
+
+| Part | Purpose |
+|------|---------|
+| SparkFun Thing Plus ESP32-C5 | Main controller, Wi-Fi, OTA, Qwiic, LiPo charging |
+| 18-pin EYESPI FPC cable | Display cabling |
+| EYESPI breakout / host wiring path | Prototyping and signal breakout |
+| SparkFun Qwiic Button with LED | Fallback / alternate physical control |
+| SparkFun VEML6030 ambient light sensor | Auto-dim / ambient light input |
+| SG90 micro servo | Mailbox flag actuation |
+| Qwiic cables | I2C daisy-chain wiring |
+
+### Ordered for V2
+
+| Part | Source / ID | Purpose |
+|------|-------------|---------|
+| 2.8" TFT LCD with capacitive touch, EYESPI, and microSD | Adafruit #2090 | Larger display and media storage |
+| MAX98357A I2S 3W Class-D mono amplifier | Adafruit #3006 | ESP32-managed audio playback |
+| Mono enclosed speaker, 3W 4Ω | Adafruit #3351 | Audio output |
+| DRV5032 digital magnetic Hall-effect sensor | Adafruit / ScoutMakes #6051 | Flag position sensing |
+| Magnetic contact switch | Adafruit #375 | Magnet source / fallback contact sensor |
+| 2200mAh cylindrical LiIon battery | Adafruit #1781 | Larger V2 power reserve |
+| NeoPixel Jewel | Adafruit #2226 | Translucent heart glow |
+| MPR121 capacitive touch sensor | Adafruit #4830 | Heart touch / heart-back input |
+| Copper foil tape | Adafruit #1127 | Touch electrode |
+| DRV2605L haptic motor controller | Adafruit #2305 | Heartbeat vibration effects |
+| Vibrating mini motor disc | Adafruit #1201 | Haptic output |
+| Half-size breadboard + jumper bundle | Adafruit #3314 | ESP32 fanout and shared power/ground rows |
+| Lexar E-Series 32GB microSDHC UHS-I cards, 3-pack | Amazon | Media cache for downloaded pictures and audio |
+
+### V2 Items Still Pending
+
+| Item | Depends on |
+|------|------------|
+| Speaker gasket, grille, and acoustic chamber | Final speaker location and vent geometry |
+| M2/M2.5 screws, heat-set inserts, or self-tapping screws | Final display, speaker, sensor, and tray mounts |
+| Optional separate microSD breakout | Only if the #2090 TFT microSD slot is not serviceable |
+
+---
+
+## 🏗️ V1 System Architecture
 
 ```
 ┌─────────────────────┐         ┌──────────────────────┐
@@ -117,22 +183,75 @@ ESP32 and cylindrical 2200mAh battery.
 
 ---
 
+## 🏗️ V2 Device Architecture
+
+The cloud/backend remains the same. The physical device changes from a buzzer
+and 2.0" display into an ESP32-managed media and interaction hub:
+
+```
+Azure Static Web App + Functions + Table/Blob Storage
+        │
+        │ HTTPS: messages, photos, firmware, media metadata
+        ▼
+SparkFun Thing Plus ESP32-C5
+        │
+        ├── SPI / EYESPI ── Adafruit #2090 2.8" TFT
+        │                    └── microSD media cache
+        │
+        ├── I2S ─────────── MAX98357A amp ── enclosed speaker
+        │
+        ├── GPIO ────────── NeoPixel Jewel behind translucent heart
+        │
+        ├── I2C/Qwiic ───── VEML6030 light sensor
+        │              ├── MPR121 capacitive touch sensor
+        │              └── DRV2605L haptic controller ── vibration motor
+        │
+        ├── GPIO ────────── Hall sensor / magnetic contact path
+        │
+        ├── PWM ─────────── SG90 flag servo
+        │
+        └── Battery ─────── 2200mAh cylindrical LiIon
+```
+
+The V2 firmware must add microSD file management, audio playback, NeoPixel
+effects, capacitive touch, haptic effects, and flag-state sensing before the
+new enclosure is treated as final.
+
+---
+
 ## 🚀 Quickstart
 
-### 1. Deploy the Azure Backend
+### V1: Build / Run the Current Device
+
+#### 1. Deploy the Azure Backend
 See [docs/azure-setup.md](docs/azure-setup.md) for step-by-step instructions.
 
-### 2. Flash the Firmware
+#### 2. Flash the Firmware
 See [docs/firmware-setup.md](docs/firmware-setup.md) for Arduino IDE setup and flashing.
 
-### 3. Wire the Hardware
+#### 3. Wire the Hardware
 See [docs/wiring.md](docs/wiring.md) for pin connections and Qwiic daisy-chain.
 
-### 4. Print the Enclosure
+#### 4. Print the Enclosure
 STL files in [`/enclosure`](enclosure/). Any FDM printer works.
 
-### 5. Connect and Send Messages
+#### 5. Connect and Send Messages
 Open the messaging web page, type a message, hit send. Watch the flag rise. ❤️
+
+### V2: Build Path
+
+V2 is in hardware planning/prototyping, not a ready-to-print release. The next
+steps are:
+
+1. Validate the #2090 TFT and microSD from the ESP32-C5.
+2. Validate SD-backed image and audio file read/write.
+3. Validate MAX98357A I2S audio playback from microSD.
+4. Validate NeoPixel glow through translucent print samples.
+5. Validate MPR121 touch detection through the heart/copper stack.
+6. Validate DRV2605L haptics and motor placement.
+7. Validate Hall sensor and magnet alignment for flag position.
+8. Redesign the floor/tray around bottom-header ESP32 clearance and #1781 battery placement.
+9. Print a fit coupon before printing a full V2 enclosure.
 
 ---
 
@@ -179,11 +298,13 @@ MIT License — build one, sell one, modify it, do whatever you want.
 | Metric | Value |
 |--------|-------|
 | Current firmware source | **v1.2.10** |
-| V2 hardware planning | **Captured in docs/v2-build-plan.md** |
+| V1 physical build | **Complete / validated** |
+| V2 hardware planning | **Captured; parts ordered; firmware/CAD not yet implemented** |
 | Original features replicated | 8 of 10 (80%) |
 | V1 features added beyond original | 9 |
 | V1 scope creep ratio | 0.9x |
 | V1 cost vs commercial ($129) | **$57/unit (56% cheaper)** |
+| V2 primary blocker | **Validate new hardware stack before redesigning enclosure** |
 | Monthly hosting cost | ~$0.02 |
 | Architecture failure resistance score | **9.7 / 10** |
 
