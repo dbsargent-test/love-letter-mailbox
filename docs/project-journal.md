@@ -70,6 +70,28 @@ Features we added **beyond** the original Love Letter Tech product:
 
 ## Session Log
 
+### 2026-10-06 (Tue) — V2 Hardware Architecture and BOM
+
+- Captured the V2 hardware direction in `docs/v2-build-plan.md`.
+- Reframed audio hardware around the feature requirement: OTA-updatable media
+  files owned by the ESP32, not a separate audio board with its own unmanaged SD
+  card.
+- Selected the preferred V2 media/audio path: ESP32 HTTPS download -> TFT #2090
+  microSD media cache -> I2S -> MAX98357A amplifier -> enclosed speaker.
+- Recorded the final V2 purchase set: Adafruit #2090 display, #3006 MAX98357A,
+  #3351 speaker, #6051 Hall sensor, #375 magnetic contact switch/magnet path,
+  #1781 cylindrical battery, #2226 NeoPixel Jewel, #4830 MPR121, #1127 copper
+  tape, #2305 DRV2605L, #1201 vibration motor, #3314 breadboard/jumpers, and
+  Lexar 32GB microSD cards.
+- Dropped the EL wire/inverter path for now; V2 uses a translucent printed heart
+  backed by a NeoPixel Jewel plus copper touch electrode and haptic feedback.
+- Marked the prior internal tray model obsolete because it does not account for
+  ESP32 bottom-soldered headers or the selected cylindrical battery.
+- Listed the next physical-design requirements: serviceable #2090 microSD
+  access, speaker chamber/vent path, haptic motor placement, Hall sensor/magnet
+  alignment, translucent heart geometry, and a fit coupon before a full
+  enclosure print.
+
 ### 2026-08-24 (Mon) — Afternoon
 
 **Duration:** ~2.5 hours

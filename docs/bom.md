@@ -71,3 +71,17 @@ If the SparkFun 850mAh is unavailable:
 - Any single-cell 3.7V LiPo with a **2-pin JST-PH** connector will work
 - Adafruit and Amazon carry many options in the 400-1200mAh range
 - Larger capacity = longer backup time, but physically bigger
+
+---
+
+## V2 Hardware Expansion
+
+V2 planning is tracked in [Mailbox V2 Build Plan](v2-build-plan.md). The V2
+parts list adds a larger 2.8" TFT with microSD, ESP32-managed audio playback,
+translucent heart lighting, capacitive heart input, haptic feedback, flag-state
+sensing, and a larger cylindrical battery.
+
+The V2 bill of materials is not a drop-in replacement for this V1 BOM. It
+requires a redesigned internal tray because the real ESP32-C5 build has
+bottom-soldered headers and the selected 2200mAh battery is cylindrical rather
+than a flat pouch cell.

@@ -132,6 +132,7 @@ Open the messaging web page, type a message, hit send. Watch the flag rise. ❤�
 |-------|-------------|
 | [Architecture](docs/architecture.md) | System design, failure analysis, and design decisions |
 | [Bill of Materials](docs/bom.md) | Complete parts list with purchase links |
+| [V2 Build Plan](docs/v2-build-plan.md) | V2 hardware architecture, ordered BOM, media storage, and enclosure implications |
 | [Wiring Guide](docs/wiring.md) | Pin connections + Qwiic daisy-chain diagram |
 | [Azure Setup](docs/azure-setup.md) | Deploy the backend in 15 minutes |
 | [Firmware Setup](docs/firmware-setup.md) | Arduino IDE configuration + flashing |
@@ -168,6 +169,7 @@ MIT License — build one, sell one, modify it, do whatever you want.
 | Metric | Value |
 |--------|-------|
 | Current firmware source | **v1.2.10** |
+| V2 hardware planning | **Captured in docs/v2-build-plan.md** |
 | Original features replicated | 8 of 10 (80%) |
 | Features added beyond original | 9 |
 | Scope creep ratio | 0.9x |
