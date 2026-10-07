@@ -1153,6 +1153,15 @@
       return { 'x-auth-token': authToken, 'Content-Type': 'application/json' };
     }
 
+    async function getApiErrorMessage(res, fallback = 'Request failed') {
+      try {
+        const data = await res.json();
+        return data.error || data.message || `${fallback}: ${res.status}`;
+      } catch {
+        return `${fallback}: ${res.status}`;
+      }
+    }
+
     // --- CHARACTER COUNTER ---
     document.getElementById('messageText').addEventListener('input', (e) => {
       document.getElementById('charCounter').textContent = `${e.target.value.length}/500`;
@@ -1234,7 +1243,7 @@
         });
 
         if (res.status === 401) { logout(); return; }
-        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        if (!res.ok) throw new Error(await getApiErrorMessage(res, 'Send failed'));
 
         const recipientName = document.getElementById('recipientSelect').selectedOptions[0].textContent;
         status.textContent = t('sentTo').replace('{name}', recipientName);
